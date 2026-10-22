@@ -1,0 +1,4 @@
+-- Defaults are per-user, not shared global rows.
+-- The authenticated app calls public.initialize_journey() after login.
+-- This ON CONFLICT DO NOTHING initializer is defined in the migration and
+-- preserves existing configurations, archives, logs, and custom activities.

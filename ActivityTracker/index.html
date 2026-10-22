@@ -1,5 +1,31 @@
-<html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Your private daily activity journal. Small steps, meaningful progress."
+    />
+    <title>My Journey</title>
+    <link rel="stylesheet" href="./src/style.css" />
+    <script src="./config.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.118.0?bundle",
+          "date-fns": "https://esm.sh/date-fns@4.4.0",
+          "date-fns/": "https://esm.sh/date-fns@4.4.0/",
+          "date-fns-tz": "https://esm.sh/date-fns-tz@3.2.0?external=date-fns"
+        }
+      }
+    </script>
+  </head>
   <body>
-      <h1>Activity Tracker</h1>
+    <div id="root">
+      <div class="loading" role="status">Opening your journey...</div>
+    </div>
+    <noscript>Enable JavaScript to use My Journey.</noscript>
+    <script type="module" src="./src/start.js"></script>
   </body>
 </html>
