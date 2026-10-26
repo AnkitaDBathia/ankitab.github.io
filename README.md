@@ -11,7 +11,7 @@ A private daily activity journal made with plain HTML, CSS, and JavaScript. GitH
 - Native HTML dialogs, responsive desktop/mobile layout, light/dark themes, and explicit timezone calculations.
 - PostgreSQL migration, ownership constraints, RLS, and automated regression tests.
 
-The database schema is unchanged by the frontend conversion. Do not rerun the initial migration if you already applied it successfully. No live Supabase setup or deployment has been performed by this change. The project URL is still needed to connect your account.
+The database schema is unchanged by the frontend conversion. Do not rerun the initial migration if you already applied it successfully. No live Supabase setup or deployment has been performed by this change. The project URL and publishable key are configured in `ActivityTracker/config.js`.
 
 ## Database storage and cross-device access
 
@@ -29,7 +29,7 @@ For explicit local-only testing, `guestMode: true` in `config.js` enables guest 
 2. Open SQL Editor and run the complete file `ActivityTracker/supabase/migrations/202610210001_initial.sql` once.
 3. Verify these tables exist with RLS enabled: `user_settings`, `activities`, `activity_items`, `activity_logs`.
 4. Enable Email authentication, disable public signups for your private deployment, and create your own account under Authentication > Users. Use the confirmation option for your verified email address as appropriate.
-5. Set Authentication > URL Configuration > Site URL to `http://localhost:5173/` for local testing, then `https://ankitab.github.io/` after deploying.
+5. Set Authentication > URL Configuration > Site URL to `http://localhost:5173/` for local testing, then `https://ankitadbathia.github.io/ankitab.github.io/` after deploying.
 6. Allow both URLs as redirect URLs. For a project repository, include its path, such as `https://YOUR_NAME.github.io/REPOSITORY/`.
 7. For reliable password recovery, configure Supabase SMTP and test email delivery.
 
@@ -37,9 +37,9 @@ The authenticated app calls `initialize_journey()` to create your five initial a
 
 ## 2. Configure the website
 
-Browser configuration now lives in **`ActivityTracker/config.js`**, not environment variables. Your previously supplied publishable key has been migrated into that local, Git-ignored file. Add your project URL there.
+Browser configuration now lives in **`ActivityTracker/config.js`**, not environment variables. Your previously supplied publishable key has been migrated into that public configuration file included in Git. Add your project URL there.
 
-For a fresh checkout, copy the template:
+The committed configuration is ready for this project. Only for a different Supabase project, replace it using the template:
 
 ```powershell
 cd D:\Ankita\ankitab.github.io\ActivityTracker
@@ -84,9 +84,9 @@ The `.github/workflows/deploy.yml` workflow tests the code and copies browser-re
 4. Review and commit the source files, then push to `main` or `master`.
 5. Wait for the workflow's deployment job to succeed; it reports the deployed URL.
 
-The workflow creates the public `config.js` from those repository variables. Local `config.js`, `.env.local`, tests, migrations, and `node_modules` are not uploaded. Keep private secrets out of any browser configuration.
+The workflow uses repository variables when provided, otherwise it copies the committed public `config.js`. `.env.local`, tests, migrations, and `node_modules` are not uploaded by the workflow. Keep private secrets out of any browser configuration.
 
-All asset URLs are relative. The same website works at `/` or under a GitHub project repository path without a base-path setting. Hash navigation (for example `/#history`) supports refreshing screens without server rewrites. This repository deploys the app at `https://ankitab.github.io/` rather than `/ActivityTracker/`.
+All asset URLs are relative. The same website works at `/` or under a GitHub project repository path without a base-path setting. Hash navigation (for example `/#history`) supports refreshing screens without server rewrites. This repository deploys the app at `https://ankitadbathia.github.io/ankitab.github.io/` rather than `/ActivityTracker/`.
 
 To prepare the static files yourself:
 
@@ -113,7 +113,7 @@ Hosted Supabase authentication/email, live data access, and desktop/Android brow
 ## How it works
 
 - `index.html`: browser entry point and import map.
-- `config.js`: local public Supabase configuration (Git-ignored).
+- `config.js`: public Supabase configuration included in Git.
 - `src/start.js`: starts the app and reports dependency-loading errors.
 - `src/app.js`: session lifecycle, navigation, and user actions.
 - `src/views.js`: dashboard, activity details, history, settings, reports and login markup.
@@ -145,3 +145,7 @@ Logs are fetched in 1,000-row pages for complete totals. Configuration lists use
 - **PowerShell blocks npm.ps1:** use `npm.cmd`.
 
 Before considering deployment verified, test login/recovery, logging each activity, custom fields, per-item totals, editing/deletion, midnight boundaries, reload persistence, a second user's isolation, mobile dialogs and a refreshed hash URL.
+
+## Pages paths for this repository
+
+The repository is `AnkitaDBathia/ankitab.github.io`, a project site. With the custom GitHub Actions workflow, the app is published at `https://ankitadbathia.github.io/ankitab.github.io/`. With Pages configured to deploy the repository root directly from a branch, the app remains under `https://ankitadbathia.github.io/ankitab.github.io/ActivityTracker/index.html`. Both methods include the public configuration after `ActivityTracker/config.js` is committed. Use the exact app directory URL for Supabase authentication redirects, including the trailing slash.

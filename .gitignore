@@ -5,5 +5,5 @@ dist/
 !.env.example
 *.tsbuildinfo
 coverage/
-ActivityTracker/config.js
+# config.js contains browser-public Supabase configuration and is deployed with the site.
 site/

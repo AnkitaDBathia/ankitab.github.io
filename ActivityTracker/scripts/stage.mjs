@@ -29,11 +29,7 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY) {
     }) +
     ";\n";
 } else {
-  try {
-    config = await readFile(new URL("config.js", app), "utf8");
-  } catch {
-    config = await readFile(new URL("config.example.js", app), "utf8");
-  }
+  config = await readFile(new URL("config.js", app), "utf8");
 }
 await writeFile(new URL("config.js", output), config);
 await writeFile(new URL(".nojekyll", output), "");
