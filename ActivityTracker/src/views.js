@@ -1,4 +1,4 @@
-import { guestMode } from "./mode.js";
+import { guestMode as defaultGuestMode } from "./mode.js";
 import { formatInTimeZone } from "date-fns-tz";
 import { completed, localDay, moveDay, onDay, total } from "./lib.js";
 import { h, icon, button, input, select } from "./ui.js";
@@ -29,7 +29,7 @@ export function logList(logs, data) {
         .join("")}</div>`
     : empty;
 }
-export function renderView(data, state, email) {
+export function renderView(data, state, email, guestMode = defaultGuestMode) {
   const { page, day, filter, itemFilter, showArchived } = state;
   const today = localDay(new Date(), data.settings.timezone);
   const daily = onDay(data.logs, day, data.settings.timezone);

@@ -23,6 +23,7 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY) {
   config =
     "window.MY_JOURNEY_CONFIG = " +
     JSON.stringify({
+      guestMode: false,
       supabaseUrl: process.env.SUPABASE_URL,
       supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
     }) +

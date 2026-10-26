@@ -99,13 +99,19 @@ describe("Temporary guest journal", () => {
   });
   it("clearly labels guest storage and hides sign-out controls", () => {
     const data = createGuestStore(memory()).load();
-    const html = renderView(data, { page: "dashboard", day: "2026-10-22" }, "");
+    const html = renderView(
+      data,
+      { page: "dashboard", day: "2026-10-22" },
+      "",
+      true,
+    );
     assert.ok(html.includes("not Supabase"));
     assert.ok(!html.includes('data-action="signout"'));
     const settings = renderView(
       data,
       { page: "settings", day: "2026-10-22" },
       "",
+      true,
     );
     assert.ok(!settings.includes("Signed in as"));
   });

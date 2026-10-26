@@ -1,2 +1,5 @@
-// Temporary default. Set guestMode: false in config.js to require Supabase login again.
-export const guestMode = globalThis.MY_JOURNEY_CONFIG?.guestMode !== false;
+// Cloud storage is the default. Guest mode must be explicitly enabled for local testing.
+export function isGuestMode(config) {
+  return config?.guestMode === true;
+}
+export const guestMode = isGuestMode(globalThis.MY_JOURNEY_CONFIG);
