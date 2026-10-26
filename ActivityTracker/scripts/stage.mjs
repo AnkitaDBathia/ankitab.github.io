@@ -8,6 +8,7 @@ for (const file of [
   "app.js",
   "data.js",
   "forms.js",
+  "tracking.js",
   "guest.js",
   "mode.js",
   "lib.js",

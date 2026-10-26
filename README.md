@@ -110,6 +110,14 @@ On macOS/Linux use `npm` instead of `npm.cmd`. Tests run with Node's built-in te
 
 Hosted Supabase authentication/email, live data access, and desktop/Android browser interaction still need acceptance checks against your configured project. Automated tests do not prove those external integrations work.
 
+## Faster logging and simpler setup
+
+- For Yoga and other completion activities, use **Mark done** on the dashboard or activity page. It saves immediately and shows **Done** for the selected day. Correct an accidental entry from History using Edit or Delete.
+- Existing practices can use one-tap completion when their required fields have valid defaults. Optional details remain available through **Add details**. If a required type has no default, choose **Done / not done** in activity setup to simplify it, or provide a default in custom fields.
+- Activity setup starts with a name and a tracking choice: **Done / not done**, **A quantity**, or **Custom fields**. Done-only activities need no units, presets or field definitions. Quantity activities ask for a unit and quick-add amounts. Descriptions, icons, ordering and separate items are under **More options**.
+- To simplify existing Yoga, open **Activities > Configure**, choose **Done / not done**, and save. New entries use completion only; old entries retain their original fields and values.
+- Routine entries record time automatically. **Change date or time** is collapsed and optional. If you selected a previous date on the dashboard, the entry belongs to that date. Editing an existing entry preserves its original timestamp unless you change it.
+
 ## How it works
 
 - `index.html`: browser entry point and import map.

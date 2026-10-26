@@ -1,5 +1,10 @@
 import { formatInTimeZone } from "date-fns-tz";
 import {
+  completionOnly,
+  simpleFields,
+  automaticOccurrence,
+} from "./tracking.js";
+import {
   occurrence,
   onDay,
   total,
@@ -47,6 +52,11 @@ export function entryForm(
   const item =
     edit?.item_id ?? initialItem ?? items.find((i) => !i.archived)?.id ?? "";
   const id = crypto.randomUUID();
+  const initialTime = formatInTimeZone(
+    edit?.occurred_at ?? new Date(),
+    timezone,
+    "HH:mm",
+  );
   const { form } = sheet(
     edit ? "Edit entry" : `Log ${activity.name}`,
     `
@@ -54,7 +64,8 @@ export function entryForm(
  ${activity.item_based ? select("Item", "item", [["", "Choose an item…"], ...items.filter((i) => !i.archived || i.id === edit?.item_id).map((i) => [i.id, i.name])], item, edit ? "disabled" : "required") : ""}
  ${!edit && activity.quantity_field_id ? `<div class="presets">${activity.presets.map((p) => `<button type="submit" data-preset="${p}" formnovalidate>+${p}</button>`).join("")}</div>` : ""}
  ${fields.map((f) => fieldControl(f, values[f.id])).join("")}
- <div class="two">${input("Date", "date", date, "date", "required")}${input(`Time (${timezone})`, "time", formatInTimeZone(edit?.occurred_at ?? new Date(), timezone, "HH:mm"), "time", "required")}</div>
+ <p class="muted">${edit ? "Original date and time are kept unless changed." : `Logging for ${h(date)}. Time is recorded automatically.`}</p>
+ <details data-timestamp><summary>Change date or time</summary><div class="two">${input("Date", "date", date, "date", "required")}${input(`Time (${timezone})`, "time", initialTime, "time", "required")}</div></details>
  <button class="primary wide" type="submit">${edit ? "Save changes" : "Save entry"}</button>`,
     async (form, submitter) => {
       if (submitter?.dataset.preset) {
@@ -77,11 +88,15 @@ export function entryForm(
               }
             : {}),
           values,
-          occurred_at: occurrence(
-            valueOf(form, "date"),
-            valueOf(form, "time"),
-            timezone,
-          ),
+          occurred_at:
+            valueOf(form, "date") === date &&
+            valueOf(form, "time") === initialTime
+              ? (edit?.occurred_at ?? automaticOccurrence(day, timezone))
+              : occurrence(
+                  valueOf(form, "date"),
+                  valueOf(form, "time"),
+                  timezone,
+                ),
         },
         edit?.id,
       );
@@ -131,6 +146,111 @@ const blankField = () => ({
   max: null,
 });
 export function activityForm(save, activity) {
+  const originalMode =
+    !activity || completionOnly(activity)
+      ? "done"
+      : activity.fields.length === 1 && activity.fields[0].type === "number"
+        ? "quantity"
+        : "custom";
+  const { form, close } = sheet(
+    activity ? "Edit activity" : "Create activity",
+    `
+    ${input("Activity name", "name", activity?.name, "text", 'required maxlength="100" placeholder="e.g. Yoga"')}
+    ${select(
+      "What do you want to track?",
+      "tracking",
+      [
+        ["done", "Done / not done — one tap"],
+        ["quantity", "A quantity — glasses, pages, steps"],
+        ["custom", "Custom fields — keep more details"],
+      ],
+      originalMode,
+    )}
+    <p class="muted" data-tracking-help></p>
+    <div data-quantity>${input("What are you counting?", "unit", activity?.unit ?? "", "text", 'placeholder="e.g. glasses"')}${input("Quick-add amounts", "presets", activity?.presets?.join(", ") || "1, 2, 5", "text", 'placeholder="1, 2, 5"')}</div>
+    <div data-custom>${button("Edit custom fields", "advanced-editor")}<p class="muted">Your existing fields are kept unless you choose another tracking style.</p></div>
+    <details><summary>More options</summary>${textarea("Description (optional)", "description", activity?.description)}${select("Icon", "icon", Object.keys(symbols), activity?.icon ?? "sparkles")}${input("Display order", "position", activity?.position ?? 5, "number", "required")}${checkbox("Track separate items (such as books)", "item_based", activity?.item_based)}</details>
+    <p class="muted">Changes apply to new entries. Your history is preserved.</p>
+    <button class="primary wide" type="submit">Save activity</button>`,
+    async (form) => {
+      const mode = valueOf(form, "tracking");
+      if (mode === "done" && checked(form, "item_based"))
+        throw new Error(
+          "For one-tap completion, turn off separate items in More options. Activities with existing item history must keep their item mode.",
+        );
+      if (mode === "custom" && !activity)
+        throw new Error(
+          "Choose Edit custom fields to set up your custom activity.",
+        );
+      const fields =
+        mode === "custom"
+          ? structuredClone(activity.fields)
+          : mode === originalMode && activity
+            ? structuredClone(activity.fields)
+            : simpleFields(mode, activity);
+      const row = {
+        name: valueOf(form, "name").trim(),
+        description: valueOf(form, "description"),
+        icon: valueOf(form, "icon"),
+        position: Number(valueOf(form, "position")),
+        item_based: checked(form, "item_based"),
+        fields,
+        unit: mode === "done" ? "" : valueOf(form, "unit"),
+        presets:
+          mode === "done"
+            ? []
+            : mode === "custom"
+              ? activity.presets
+              : valueOf(form, "presets").trim()
+                ? valueOf(form, "presets").split(",").map(Number)
+                : [],
+        quantity_field_id:
+          mode === "done"
+            ? null
+            : mode === "custom"
+              ? activity.quantity_field_id
+              : fields[0].id,
+      };
+      validateActivity(row);
+      await save(row, activity?.id);
+    },
+  );
+  function update() {
+    const mode = valueOf(form, "tracking");
+    form.querySelector("[data-quantity]").hidden = mode !== "quantity";
+    form.querySelector("[data-custom]").hidden = mode !== "custom";
+    form.querySelector("[data-tracking-help]").textContent =
+      mode === "done"
+        ? "Tap Mark done on your dashboard. No entry form or duration needed."
+        : mode === "quantity"
+          ? "Add an amount each time. We’ll total it for you."
+          : "Choose the fields you need, such as type, minutes or notes.";
+  }
+  form.elements.namedItem("tracking").value = originalMode;
+  form.addEventListener("change", (e) => {
+    if (e.target.name === "tracking") update();
+  });
+  form
+    .querySelector('[data-action="advanced-editor"]')
+    .addEventListener("click", () => {
+      const draft = {
+        ...activity,
+        name: valueOf(form, "name"),
+        description: valueOf(form, "description"),
+        icon: valueOf(form, "icon"),
+        position: Number(valueOf(form, "position")),
+        item_based: checked(form, "item_based"),
+        unit: valueOf(form, "unit"),
+        fields: activity?.fields ?? [blankField()],
+        presets: activity?.presets ?? [1, 2, 5],
+        quantity_field_id: activity?.quantity_field_id ?? null,
+      };
+      close();
+      advancedActivityForm(save, draft);
+    });
+  update();
+}
+export function advancedActivityForm(save, activity) {
   const fields = structuredClone(activity?.fields ?? [blankField()]);
   const { form } = sheet(
     activity ? "Configure activity" : "Create activity",
@@ -165,7 +285,10 @@ export function activityForm(save, activity) {
   function readFields() {
     for (const f of fields) {
       const prefix = `config-${f.id}-`;
-      const type = valueOf(form, prefix + "type");
+      const type =
+        (activity?.id
+          ? activity.fields.find((old) => old.id === f.id)?.type
+          : undefined) ?? valueOf(form, prefix + "type");
       const raw = valueOf(form, prefix + "default");
       Object.assign(f, {
         label: valueOf(form, prefix + "label"),
@@ -199,7 +322,7 @@ export function activityForm(save, activity) {
     form.querySelector("[data-fields]").innerHTML = fields
       .map((f, i) => {
         const prefix = `config-${f.id}-`;
-        return `<fieldset><legend>Field ${i + 1}</legend><div class="two">${input("Label", prefix + "label", f.label, "text", "required")}${select("Type", prefix + "type", ["number", "text", "multiline", "boolean", "select", "date", "duration"], f.type, `${activity?.fields.some((old) => old.id === f.id) ? "disabled" : ""} data-type="${h(f.id)}"`)}</div>
+        return `<fieldset><legend>Field ${i + 1}</legend><div class="two">${input("Label", prefix + "label", f.label, "text", "required")}${select("Type", prefix + "type", ["number", "text", "multiline", "boolean", "select", "date", "duration"], f.type, `${activity?.id && activity.fields.some((old) => old.id === f.id) ? "disabled" : ""} data-type="${h(f.id)}"`)}</div>
   ${checkbox("Required", prefix + "required", f.required)}
   ${f.type === "select" ? textarea("Options (one per line)", prefix + "options", f.options.join("\n")) : ""}
   ${["number", "duration"].includes(f.type) ? `<div class="two">${input("Minimum", prefix + "min", f.min, "number", 'step="any"')}${input("Maximum", prefix + "max", f.max, "number", 'step="any"')}</div>` : ""}
@@ -215,17 +338,27 @@ export function activityForm(save, activity) {
           ],
           f.default_value === null ? "" : String(f.default_value),
         )
-      : input(
-          "Default value (optional)",
-          prefix + "default",
-          f.default_value,
-          ["number", "duration"].includes(f.type)
-            ? "number"
-            : f.type === "date"
-              ? "date"
-              : "text",
-          'step="any"',
-        )
+      : f.type === "select"
+        ? select(
+            "Default value (optional)",
+            prefix + "default",
+            [
+              ["", "No default"],
+              ...f.options.filter((option) => option !== ""),
+            ],
+            f.default_value ?? "",
+          )
+        : input(
+            "Default value (optional)",
+            prefix + "default",
+            f.default_value,
+            ["number", "duration"].includes(f.type)
+              ? "number"
+              : f.type === "date"
+                ? "date"
+                : "text",
+            'step="any"',
+          )
   }
   <div class="row">${i ? button("↑ Move up", "move-field", f.id) : ""}${button("Remove field", "remove-field", f.id, "danger")}</div></fieldset>`;
       })
@@ -252,6 +385,21 @@ export function activityForm(save, activity) {
     else if (index > 0)
       [fields[index - 1], fields[index]] = [fields[index], fields[index - 1]];
     drawFields();
+  });
+  form.addEventListener("input", (e) => {
+    const field = fields.find(
+      (f) => f.type === "select" && e.target.name === `config-${f.id}-options`,
+    );
+    if (!field) return;
+    const control = form.elements.namedItem(`config-${field.id}-default`);
+    const selected = control.value;
+    const choices = e.target.value
+      .split("\n")
+      .filter((option) => option !== "");
+    control.innerHTML = options(
+      [["", "No default"], ...choices],
+      choices.includes(selected) ? selected : "",
+    );
   });
   form.addEventListener("change", (e) => {
     if (!e.target.dataset.type) return;

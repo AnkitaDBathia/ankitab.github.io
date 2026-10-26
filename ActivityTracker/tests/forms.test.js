@@ -2,7 +2,11 @@ import { beforeEach, afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Window } from "happy-dom";
 import { sheet } from "../src/ui.js";
-import { entryForm, activityForm, itemForm } from "../src/forms.js";
+import {
+  entryForm,
+  advancedActivityForm as activityForm,
+  itemForm,
+} from "../src/forms.js";
 let window;
 beforeEach(() => {
   window = new Window({ url: "http://localhost:5173/" });
@@ -161,6 +165,79 @@ describe("Native dialog interactions", () => {
     assert.equal(result.name, "Walking");
     assert.equal(result.fields[0].label, "Steps");
     assert.equal(result.quantity_field_id, id);
+  });
+  it("clears a removed dropdown default and saves a replacement option", async () => {
+    let result;
+    const type = {
+      ...quantity,
+      id: "type",
+      label: "Type",
+      type: "select",
+      options: ["General", "Gentle", "Guided"],
+      default_value: "General",
+      min: null,
+      max: null,
+    };
+    activityForm(
+      async (row) => {
+        result = row;
+      },
+      {
+        ...activity,
+        name: "Meditation",
+        fields: [type],
+        quantity_field_id: null,
+        presets: [],
+      },
+    );
+    const form = document.querySelector("form");
+    const choices = form.elements.namedItem("config-type-options");
+    const defaultControl = form.elements.namedItem("config-type-default");
+    assert.equal(defaultControl.tagName, "SELECT");
+    assert.equal(defaultControl.value, "General");
+    choices.value = "Twin Heart\nGentle\nGuided";
+    choices.dispatchEvent(new window.Event("input", { bubbles: true }));
+    assert.equal(defaultControl.value, "");
+    assert.ok(![...defaultControl.options].some((o) => o.value === "General"));
+    defaultControl.value = "Twin Heart";
+    submit(form);
+    await tick();
+    assert.equal(result.fields[0].default_value, "Twin Heart");
+    assert.deepEqual(result.fields[0].options, [
+      "Twin Heart",
+      "Gentle",
+      "Guided",
+    ]);
+  });
+  it("keeps an existing dropdown default when adding another option", async () => {
+    let result;
+    const type = {
+      ...quantity,
+      id: "type",
+      label: "Type",
+      type: "select",
+      options: ["General"],
+      default_value: "General",
+      min: null,
+      max: null,
+    };
+    activityForm(
+      async (row) => {
+        result = row;
+      },
+      { ...activity, fields: [type], quantity_field_id: null, presets: [] },
+    );
+    const form = document.querySelector("form");
+    const choices = form.elements.namedItem("config-type-options");
+    choices.value = "General\nTwin Heart";
+    choices.dispatchEvent(new window.Event("input", { bubbles: true }));
+    assert.equal(
+      form.elements.namedItem("config-type-default").value,
+      "General",
+    );
+    submit(form);
+    await tick();
+    assert.equal(result.fields[0].default_value, "General");
   });
   it("saves book metadata and goal", async () => {
     let result;

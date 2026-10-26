@@ -1,3 +1,4 @@
+import { completionOnly, quickDoneValues } from "./tracking.js";
 import { guestMode as defaultGuestMode } from "./mode.js";
 import { formatInTimeZone } from "date-fns-tz";
 import { completed, localDay, moveDay, onDay, total } from "./lib.js";
@@ -6,6 +7,22 @@ const empty =
   '<div class="empty"><h3>A fresh page in your journey</h3><p>No entries here yet. Every small step counts.</p></div>';
 const cardIcon = (a) =>
   `<span class="activity-icon ${h(a.icon)}">${icon(a.icon)}</span>`;
+
+export function activityAction(activity, daily, cls = "primary") {
+  if (quickDoneValues(activity)) {
+    const done = completed(daily, activity.id);
+    return `<div class="completion-actions"><button type="button" class="${h(cls)} ${done ? "is-done" : ""}" data-action="mark-done" data-id="${h(activity.id)}" ${done ? "disabled" : ""}>${done ? "? Done" : "? Mark done"}</button>${completionOnly(activity) ? "" : button("Add details", "entry", activity.id, "text-button")}</div>`;
+  }
+  return button(
+    activity.seed_key === "water"
+      ? "+ Add 1 glass"
+      : `+ Log ${activity.name.toLowerCase()}`,
+    activity.seed_key === "water" ? "water" : "entry",
+    activity.id,
+    cls,
+  );
+}
+
 export function logList(logs, data) {
   return logs.length
     ? `<div class="log-list">${[...logs]
@@ -56,7 +73,7 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
   ];
   let content = "";
   if (page === "dashboard")
-    content = `<section class="welcome-banner"><div><span class="eyebrow">A MOMENT FOR YOU</span><h2>Grow at your own pace.</h2><p>There’s no perfect day. Just the little things you choose to do.</p><span class="badge">✓ ${active.filter((a) => daily.some((l) => l.activity_id === a.id)).length} of ${active.length} activities recorded</span></div><div class="botanical" aria-hidden="true">❧</div></section><div class="section-heading"><h2>Your daily rituals</h2><a href="#activities">All activities ↗</a></div><section class="cards">${active.map((a) => `<article class="activity-card tone-${h(a.icon)}"><div class="row between">${cardIcon(a)}<a class="icon-button" href="#activity/${h(a.id)}" aria-label="View ${h(a.name)}">↗</a></div><a href="#activity/${h(a.id)}"><h3>${h(a.name)}</h3></a><div class="metric">${a.quantity_field_id ? total(daily, a.id).toLocaleString() : daily.filter((l) => l.activity_id === a.id).length}<span>${h(a.quantity_field_id ? a.unit : "entries")}</span></div><p>${completed(daily, a.id) ? "✓ Practice completed" : h(a.description)}</p>${button(a.seed_key === "water" ? "＋ Add 1 glass" : `＋ Log ${a.name.toLowerCase()}`, a.seed_key === "water" ? "water" : "entry", a.id, "card-action")}</article>`).join("")}<button class="add-card" data-action="create-activity"><span>＋</span><strong>A new little ritual</strong><small>Create your own activity</small></button></section><div class="section-heading"><h2>Today’s moments</h2><a href="#history">View history ↗</a></div><section class="panel">${logList(daily.slice(0, 5), data)}</section>`;
+    content = `<section class="welcome-banner"><div><span class="eyebrow">A MOMENT FOR YOU</span><h2>Grow at your own pace.</h2><p>There’s no perfect day. Just the little things you choose to do.</p><span class="badge">✓ ${active.filter((a) => daily.some((l) => l.activity_id === a.id)).length} of ${active.length} activities recorded</span></div><div class="botanical" aria-hidden="true">❧</div></section><div class="section-heading"><h2>Your daily rituals</h2><a href="#activities">All activities ↗</a></div><section class="cards">${active.map((a) => `<article class="activity-card tone-${h(a.icon)}"><div class="row between">${cardIcon(a)}<a class="icon-button" href="#activity/${h(a.id)}" aria-label="View ${h(a.name)}">↗</a></div><a href="#activity/${h(a.id)}"><h3>${h(a.name)}</h3></a><div class="metric">${quickDoneValues(a) ? (completed(daily, a.id) ? "Done" : "Not yet") : a.quantity_field_id ? total(daily, a.id).toLocaleString() : daily.filter((l) => l.activity_id === a.id).length}<span>${quickDoneValues(a) ? "" : h(a.quantity_field_id ? a.unit : "entries")}</span></div><p>${completed(daily, a.id) ? "✓ Practice completed" : h(a.description)}</p>${activityAction(a, daily, "card-action")}</article>`).join("")}<button class="add-card" data-action="create-activity"><span>＋</span><strong>A new little ritual</strong><small>Create your own activity</small></button></section><div class="section-heading"><h2>Today’s moments</h2><a href="#history">View history ↗</a></div><section class="panel">${logList(daily.slice(0, 5), data)}</section>`;
   if (page === "activities")
     content = `<div class="section-heading"><label class="check"><input type="checkbox" data-change="archived" ${showArchived ? "checked" : ""}> Show archived</label>${button("＋ Create activity", "create-activity", "", "primary")}</div><section class="panel">${data.activities
       .filter((a) => showArchived || !a.archived)
@@ -68,7 +85,7 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
       .join("")}</section>`;
   if (detail) {
     const a = detail;
-    content = `<div class="detail-summary"><div class="panel stat"><small>SELECTED DAY</small><strong>${a.quantity_field_id ? total(daily, a.id) : daily.filter((l) => l.activity_id === a.id).length} <span>${h(a.quantity_field_id ? a.unit : "entries")}</span></strong>${completed(daily, a.id) ? "✓ Completed" : ""}</div><div class="panel stat"><small>ALL TIME</small><strong>${a.quantity_field_id ? total(data.logs, a.id) : data.logs.filter((l) => l.activity_id === a.id).length} <span>${h(a.quantity_field_id ? a.unit : "entries")}</span></strong></div></div><div class="section-heading">${button("Configure activity", "configure", a.id)}${a.archived ? "<span>Archived</span>" : button("＋ Log activity", "entry", a.id, "primary")}</div>`;
+    content = `<div class="detail-summary"><div class="panel stat"><small>SELECTED DAY</small><strong>${quickDoneValues(a) ? (completed(daily, a.id) ? "Done" : "Not yet") : a.quantity_field_id ? total(daily, a.id) : daily.filter((l) => l.activity_id === a.id).length} <span>${quickDoneValues(a) ? "" : h(a.quantity_field_id ? a.unit : "entries")}</span></strong>${completed(daily, a.id) ? "✓ Completed" : ""}</div><div class="panel stat"><small>ALL TIME</small><strong>${a.quantity_field_id ? total(data.logs, a.id) : data.logs.filter((l) => l.activity_id === a.id).length} <span>${h(a.quantity_field_id ? a.unit : "entries")}</span></strong></div></div><div class="section-heading">${button("Configure activity", "configure", a.id)}${a.archived ? "<span>Archived</span>" : activityAction(a, daily, "primary")}</div>`;
     if (a.item_based)
       content += `<div class="section-heading"><h2>${a.seed_key === "reading" ? "Your bookshelf" : a.seed_key === "mantra" ? "Your mantras" : "Your items"}</h2>${button("＋ Add item", "add-item", a.id)}</div><section class="panel">${
         data.items

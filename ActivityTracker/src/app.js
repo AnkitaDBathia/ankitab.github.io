@@ -1,6 +1,8 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { supabase } from "./supabase.js";
 import { guestMode } from "./mode.js";
+import { quickDoneValues, automaticOccurrence } from "./tracking.js";
+import { completed, onDay } from "./lib.js";
 import { GUEST_ID, STORAGE_KEY } from "./guest.js";
 import { deleteLog, loadJourney, saveRow } from "./data.js";
 import { localDay, moveDay, occurrence, validateFields } from "./lib.js";
@@ -159,6 +161,23 @@ root.addEventListener("click", async (e) => {
     const activity = data.activities.find((a) => a.id === id);
     const item = data.items.find((i) => i.id === id);
     const log = data.logs.find((l) => l.id === id);
+    if (action === "mark-done") {
+      if (completed(onDay(data.logs, state.day, data.settings.timezone), id))
+        return;
+      const values = quickDoneValues(activity);
+      if (!values) {
+        openEntry(activity);
+        return;
+      }
+      await mutate("activity_logs", {
+        id: crypto.randomUUID(),
+        activity_id: id,
+        item_id: null,
+        values,
+        occurred_at: automaticOccurrence(state.day, data.settings.timezone),
+      });
+      return;
+    }
     if (
       action === "previous-day" ||
       action === "next-day" ||
