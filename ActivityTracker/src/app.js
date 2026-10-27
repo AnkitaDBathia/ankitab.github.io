@@ -3,7 +3,7 @@ import { supabase } from "./supabase.js";
 import { guestMode } from "./mode.js";
 import { quickDoneValues, automaticOccurrence } from "./tracking.js";
 import { completed, onDay } from "./lib.js";
-import { GUEST_ID, STORAGE_KEY } from "./guest.js";
+import { GUEST_ID } from "./guest.js";
 import { deleteLog, loadJourney, saveRow } from "./data.js";
 import { localDay, moveDay, occurrence, validateFields } from "./lib.js";
 import { activityForm, entryForm, itemForm } from "./forms.js";
@@ -39,19 +39,6 @@ function render() {
       : data
         ? renderView(data, state, session.user.email ?? "")
         : '<div class="loading" role="status">Opening your journey…</div>';
-  if (!guestMode) {
-    try {
-      if (localStorage.getItem(STORAGE_KEY)) {
-        const notice = document.createElement("div");
-        notice.className = "guest-notice";
-        notice.innerHTML =
-          'Previous guest entries are still stored in this browser and have not been uploaded. <button type="button" data-action="export-guest">Download guest backup</button>';
-        root.prepend(notice);
-      }
-    } catch {
-      /* Cloud access does not depend on guest storage availability. */
-    }
-  }
 }
 function showError(error) {
   let el = root.querySelector("[data-error]");
@@ -127,21 +114,6 @@ root.addEventListener("click", async (e) => {
   pending.add(key);
   target.disabled = true;
   try {
-    if (action === "export-guest") {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) throw new Error("No guest journal found in this browser.");
-      const url = URL.createObjectURL(
-        new Blob([raw], { type: "application/json" }),
-      );
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "my-journey-guest-backup.json";
-      document.body.append(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-      return;
-    }
     if (action === "auth-mode") {
       authMode = authMode === "reset" ? "login" : "reset";
       render();

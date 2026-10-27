@@ -19,7 +19,7 @@ Supabase storage and sign-in are enabled by default again. Create an email/passw
 
 New entries are saved in Supabase after successful login. Open or refresh the mobile app to fetch the latest saved records; live updates without refresh are not implemented. Ensure the SQL migration was applied and the GitHub repository variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are configured before deployment. Push the updated files to deploy these changes.
 
-Earlier guest entries are still in the original browser's localStorage. They are not automatically uploaded. A **Download guest backup** button appears when that browser has guest data, including on the login page. Download the JSON before clearing browser data. It preserves entries and configurations but is not an automatic database import.
+Earlier guest entries remain in the original browser's localStorage and are not automatically uploaded. The guest-backup banner and button have been removed; saved browser data is preserved.
 
 For explicit local-only testing, `guestMode: true` in `config.js` enables guest mode. The default and generated deployment configuration use cloud mode. Supabase RLS is unchanged.
 
