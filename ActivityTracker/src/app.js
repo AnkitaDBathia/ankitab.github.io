@@ -6,6 +6,7 @@ import {
   automaticOccurrence,
   rolloverDay,
   goalProgress,
+  quickQuantityValues,
 } from "./tracking.js";
 import { completed, onDay } from "./lib.js";
 import { GUEST_ID } from "./guest.js";
@@ -14,6 +15,7 @@ import { localDay, moveDay, occurrence, validateFields } from "./lib.js";
 import { activityForm, entryForm, itemForm } from "./forms.js";
 import { authView, renderView } from "./views.js";
 import { notify, sheet, valueOf } from "./ui.js";
+import { createResumeSync } from "./sync.js";
 
 const root = document.getElementById("root");
 const state = {
@@ -30,6 +32,18 @@ let data = null,
   loadVersion = 0,
   loading = false;
 let lastToday = null;
+let writeVersion = 0;
+function canAutoSync() {
+  return !!session && !!data && !guestMode && authMode !== "recovery" &&
+    !document.hidden && !loading && !pending.size && !undoPending.size &&
+    !document.querySelector("dialog") && state.page !== "settings" &&
+    !document.activeElement?.matches("input,textarea,select");
+}
+const resumeSync = createResumeSync({
+  canRun: canAutoSync,
+  run: () => refresh(true),
+  onError: () => notify("Could not sync. Your displayed entries are unchanged. Use Refresh to retry."),
+});
 function checkDay() {
   if (!data) return;
   const today = localDay(new Date(), data.settings.timezone);
@@ -45,8 +59,10 @@ function resumeDay() {
   const previous = lastToday;
   checkDay();
   if (data && previous !== lastToday) render();
+  if (session && data && !guestMode) resumeSync.request();
 }
 window.addEventListener("focus", resumeDay);
+window.addEventListener("online", resumeDay);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) resumeDay();
 });
@@ -82,25 +98,32 @@ function showError(error) {
   el.hidden = false;
   el.textContent = error.message ?? String(error);
 }
-async function refresh() {
-  if (!session || loading) return;
+async function refresh(background = false) {
+  if (!session || loading) return false;
+  const writes = writeVersion;
   loading = true;
   const version = ++loadVersion;
   const owner = session.user.id;
   try {
     const next = await loadJourney();
     if (version !== loadVersion || session?.user.id !== owner) return;
+    // A form or write may have started while the request was in flight.
+    if (background && (writes !== writeVersion || pending.size || undoPending.size ||
+      document.hidden || document.querySelector("dialog") || state.page === "settings" ||
+      document.activeElement?.matches("input,textarea,select"))) return false;
     if (!data) state.day = localDay(new Date(), next.settings.timezone);
     data = next;
     checkDay();
     render();
   } catch (e) {
+    if (background) throw e;
     if (version === loadVersion) showError(e);
   } finally {
     if (version === loadVersion) loading = false;
   }
 }
 async function mutate(table, row, id) {
+  writeVersion++;
   const owner = session.user.id;
   const saved = await saveRow(table, { ...row, user_id: owner }, id);
   if (session?.user.id !== owner) return;
@@ -136,6 +159,7 @@ const undoPending = new Set();
 async function undoEntry(id) {
   if (undoPending.has(id) || !data?.logs.some((l) => l.id === id)) return;
   undoPending.add(id);
+  writeVersion++;
   const owner = session?.user.id;
   try {
     await deleteLog(id);
@@ -182,7 +206,7 @@ root.addEventListener("click", async (e) => {
   pending.add(key);
   target.disabled = true;
   const originalLabel = target.textContent;
-  if (["mark-done", "water", "undo-log"].includes(action))
+  if (["mark-done", "water", "undo-log", "increment-item"].includes(action))
     target.textContent = action === "undo-log" ? "Undoing..." : "Saving...";
   try {
     if (action === "auth-mode") {
@@ -239,6 +263,20 @@ root.addEventListener("click", async (e) => {
     if (action === "create-activity" || action === "configure")
       activityForm((row, id) => mutate("activities", row, id), activity);
     if (action === "entry") openEntry(activity);
+    if (action === "increment-item") {
+      const parent = data.activities.find(a => a.id === item?.activity_id);
+      const values = quickQuantityValues(parent, Number(target.dataset.amount ?? 1));
+      if (!item || item.archived || !values)
+        throw new Error("Quick add requires valid defaults for all required fields. Update the activity configuration.");
+      await mutate("activity_logs", {
+        id: crypto.randomUUID(),
+        activity_id: parent.id,
+        item_id: item.id,
+        values,
+        occurred_at: automaticOccurrence(state.day, data.settings.timezone),
+      });
+      return;
+    }
     if (action === "entry-item")
       openEntry(
         data.activities.find((a) => a.id === item.activity_id),
@@ -267,6 +305,7 @@ root.addEventListener("click", async (e) => {
       );
     if (action === "delete-log")
       confirm("Delete this entry?", async () => {
+        writeVersion++;
         await deleteLog(id);
         data.logs = data.logs.filter((l) => l.id !== id);
         render();
@@ -405,6 +444,7 @@ function acceptSession(next, event) {
   session = next;
   if (event === "PASSWORD_RECOVERY") authMode = "recovery";
   if (changed) {
+    resumeSync.cancel();
     loadVersion++;
     loading = false;
     data = null;

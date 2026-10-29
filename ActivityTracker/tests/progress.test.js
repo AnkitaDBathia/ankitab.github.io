@@ -86,7 +86,7 @@ it("uses selected-day totals for daily goals and all dates for overall item goal
       "2026-10-29",
       "UTC",
     ).text,
-    "Goal reached!",
+    "Goal reached! 8 pages extra",
   );
 });
 it("shows target and remaining amount together", () => {
@@ -150,4 +150,48 @@ it("offers undo for only the latest completed entry, excluding false entries", (
     ),
     undefined,
   );
+});
+
+it("keeps item logging available beyond the goal with the correct item selected", () => {
+  const item = {id:"book",name:"GIP",goal:9,goal_period:"daily"};
+  const html = targetSummary(activity,item,{logs,settings:{timezone:"UTC"}},"2026-10-29",true);
+  assert.ok(html.includes('data-action="increment-item" data-id="book"'));
+  assert.ok(html.includes('aria-label="Add 1 to GIP"'));
+  assert.ok(!html.includes("disabled"));
+  assert.ok(html.includes("9 pages extra"));
+  assert.ok(!targetSummary(activity,{...item,archived:true},{logs,settings:{timezone:"UTC"}},"2026-10-29",true).includes('data-action="increment-item"'));
+});
+it("allows another entry for a completed done-only activity", () => {
+  const fields = [{id:"done",type:"boolean",required:true,default_value:true}];
+  const a = {id:"y",fields,item_based:false};
+  const html = activityAction(a,[{id:"log",activity_id:"y",values:{done:true},field_snapshot:fields}]);
+  assert.ok(html.includes("+ Log again"));
+  assert.ok(html.includes('data-action="entry" data-id="y"'));
+});
+
+it("quick counter adds exactly one while preserving valid defaults", async () => {
+  const {quickQuantityValues} = await import("../src/tracking.js");
+  const a = {quantity_field_id:"q",fields:[{id:"q",type:"number",required:true,default_value:108,min:1,max:null}]};
+  assert.deepEqual(quickQuantityValues(a),{q:1});
+  assert.equal(quickQuantityValues({...a,archived:true}),null);
+  assert.equal(quickQuantityValues({...a,fields:[...a.fields,{id:"note",type:"text",required:true,default_value:null}]}),null);
+});
+
+it("derives compact target amounts and a remaining shortcut", async () => {
+  const {quickAmounts, quickQuantityValues} = await import("../src/tracking.js");
+  assert.deepEqual(quickAmounts(9), [1,3]);
+  assert.deepEqual(quickAmounts(27), [1,9,18,27]);
+  assert.deepEqual(quickAmounts(108), [1,12,24,36]);
+  assert.deepEqual(quickAmounts(108,5), [1,5]);
+  assert.deepEqual(quickAmounts(27,0), [1,9,18,27]);
+  assert.deepEqual(quickAmounts(1), [1]);
+  for (const goal of [2,7,13,50,101,1000]) {
+    const amounts = quickAmounts(goal);
+    assert.ok(amounts.length <= 4);
+    assert.ok(amounts.every(n=> n > 0 && Number.isInteger(n)));
+    assert.equal(new Set(amounts).size, amounts.length);
+  }
+  const a = {quantity_field_id:"q",fields:[{id:"q",type:"number",required:true,default_value:1,min:1,max:108}]};
+  assert.deepEqual(quickQuantityValues(a,24),{q:24});
+  for (const invalid of [0,-1,NaN,Infinity,109]) assert.equal(quickQuantityValues(a,invalid),null);
 });

@@ -3,6 +3,7 @@ import {
   quickDoneValues,
   latestCompletion,
   goalProgress,
+  quickAmounts,
 } from "./tracking.js";
 import { guestMode as defaultGuestMode } from "./mode.js";
 import { formatInTimeZone } from "date-fns-tz";
@@ -17,7 +18,7 @@ export function activityAction(activity, daily, cls = "primary") {
   if (quickDoneValues(activity)) {
     const done = completed(daily, activity.id);
     const latest = latestCompletion(daily, activity.id);
-    return `<div class="completion-actions"><button type="button" class="${h(cls)} ${done ? "is-done" : ""}" data-action="mark-done" data-id="${h(activity.id)}" ${done ? "disabled" : ""}>${done ? "Done" : "Mark done"}</button>${latest?.id ? button("Undo", "undo-log", latest.id, "text-button") : ""}${completionOnly(activity) ? "" : button("Add details", "entry", activity.id, "text-button")}</div>`;
+    return `<div class="completion-actions"><button type="button" class="${h(cls)} ${done ? "is-done" : ""}" data-action="mark-done" data-id="${h(activity.id)}" ${done ? "disabled" : ""}>${done ? "Done" : "Mark done"}</button>${latest?.id ? button("Undo", "undo-log", latest.id, "text-button") : ""}${done ? button("+ Log again", "entry", activity.id, "text-button") : completionOnly(activity) ? "" : button("Add details", "entry", activity.id, "text-button")}</div>`;
   }
   return button(
     activity.seed_key === "water"
@@ -29,7 +30,7 @@ export function activityAction(activity, daily, cls = "primary") {
   );
 }
 
-export function targetSummary(activity, item, data, day) {
+export function targetSummary(activity, item, data, day, showLog = false) {
   const progress = goalProgress(
     activity,
     item,
@@ -38,14 +39,14 @@ export function targetSummary(activity, item, data, day) {
     data.settings.timezone,
   );
   if (!progress) return "";
-  return `<div class="target-summary"><small>${item ? `${h(item.name)} - ` : ""}${progress.daily ? "Daily" : "Overall"} target: ${progress.value.toLocaleString()} / ${progress.goal.toLocaleString()} ${h(activity.quantity_field_id ? activity.unit : "entries")}</small><strong>${h(progress.text)}</strong><progress aria-label="${h(item?.name ?? activity.name)} target" max="${progress.goal}" value="${Math.max(0, Math.min(progress.goal, progress.value))}"></progress></div>`;
+  return `<div class="target-summary"><small>${item ? `${h(item.name)} - ` : ""}${progress.daily ? "Daily" : "Overall"} target: ${progress.value.toLocaleString()} / ${progress.goal.toLocaleString()} ${h(activity.quantity_field_id ? activity.unit : "entries")}</small><div class="target-action"><strong>${h(progress.text)}</strong>${showLog && item && !item.archived && !activity.archived ? `<div class="quick-amounts">${quickAmounts(progress.goal, progress.remaining).map(amount => `<button type="button" class="target-log" data-action="increment-item" data-id="${h(item.id)}" data-amount="${amount}" aria-label="Add ${amount} to ${h(item.name)}">+${amount}${amount === progress.remaining ? " to finish" : ""}</button>`).join("")}</div>` : ""}</div><progress aria-label="${h(item?.name ?? activity.name)} target" max="${progress.goal}" value="${Math.max(0, Math.min(progress.goal, progress.value))}"></progress></div>`;
 }
 function cardTargets(activity, data, day) {
   return (
     targetSummary(activity, null, data, day) +
     data.items
       .filter((i) => i.activity_id === activity.id && !i.archived && i.goal)
-      .map((i) => targetSummary(activity, i, data, day))
+      .map((i) => targetSummary(activity, i, data, day, true))
       .join("")
   );
 }

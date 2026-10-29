@@ -40,12 +40,40 @@ export function goalProgress(activity, item, logs, day, timezone) {
     remaining,
     text: remaining
       ? `${remaining.toLocaleString()} ${unit} to go`
-      : "Goal reached!",
+      : value > goal
+        ? `Goal reached! ${Math.round((value - goal) * 1e8) / 1e8} ${unit} extra`
+        : "Goal reached!",
   };
 }
 
 export function completionOnly(activity) {
   return activity.fields.length === 1 && activity.fields[0].type === "boolean";
+}
+export function quickAmounts(goal, remaining = goal) {
+  if (!Number.isFinite(goal) || goal <= 0) return [1];
+  const divisor = goal <= 36 ? 3 : 9;
+  const ideal = goal / divisor;
+  const candidates = Array.from({ length: 11 }, (_, i) => goal / (i + 2))
+    .filter(n => Number.isInteger(n) && n >= 1);
+  const base = candidates.sort((a, b) => Math.abs(a - ideal) - Math.abs(b - ideal))[0]
+    ?? Math.max(1, Math.round(ideal));
+  let suggested = goal <= 12 ? [1, base] : [base, base * 2, base * 3];
+  suggested = suggested.filter(n => n <= goal);
+  if (remaining > 0 && remaining <= Math.max(...suggested, 1)) {
+    suggested = suggested.filter(n => n < remaining).slice(0, 2);
+    suggested.push(remaining);
+  }
+  return [...new Set([1, ...suggested])].sort((a, b) => a - b);
+}
+
+export function quickQuantityValues(activity, amount = 1) {
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  if (!activity || activity.archived || !activity.quantity_field_id) return null;
+  const values = Object.fromEntries(activity.fields
+    .filter(f => f.default_value != null)
+    .map(f => [f.id, f.default_value]));
+  values[activity.quantity_field_id] = amount;
+  return Object.keys(validateFields(activity.fields, values)).length ? null : values;
 }
 // Only offer a one-tap action when all required information can be supplied.
 export function quickDoneValues(activity) {

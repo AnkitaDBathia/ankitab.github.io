@@ -9,6 +9,16 @@ export const escapeHTML = (value = "") =>
   );
 export const h = escapeHTML;
 export const symbols = {
+  mantra: "📿",
+  lotus: "🪷",
+  diya: "🪔",
+  om: "🕉️",
+  peace: "🕊️",
+  forgiveness: "🤍",
+  kindness: "💗",
+  reflection: "🪞",
+  journal: "📓",
+  sunrise: "🌅",
   yoga: "🧘",
   exercise: "🏋️",
   running: "🏃",
