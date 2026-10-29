@@ -46,9 +46,9 @@ describe("Native browser presentation", () => {
       new URL("../index.html", import.meta.url),
       "utf8",
     );
-    assert.ok(html.includes('src="./src/start.js"'));
-    assert.ok(html.includes('href="./src/style.css"'));
-    assert.ok(html.includes('src="./config.js"'));
+    assert.ok(html.includes('src="./src/start.js?v='));
+    assert.ok(html.includes('href="./src/style.css?v='));
+    assert.ok(html.includes('src="./config.js?v='));
     assert.ok(html.includes('type="importmap"'));
   });
   it("has no framework or bundler dependency", () => {

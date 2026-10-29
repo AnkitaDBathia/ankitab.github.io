@@ -8,17 +8,30 @@
       content="Your private daily activity journal. Small steps, meaningful progress."
     />
     <title>My Journey</title>
-    <link rel="stylesheet" href="./src/style.css" />
-    <script src="./config.js"></script>
+    <link rel="stylesheet" href="./src/style.css?v=20261029-layout2" />
+    <script src="./config.js?v=20261029-layout2"></script>
     <script type="importmap">
-      {
-        "imports": {
-          "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.118.0?bundle",
-          "date-fns": "https://esm.sh/date-fns@4.4.0",
-          "date-fns/": "https://esm.sh/date-fns@4.4.0/",
-          "date-fns-tz": "https://esm.sh/date-fns-tz@3.2.0?external=date-fns"
-        }
-      }
+{
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.118.0?bundle",
+    "date-fns": "https://esm.sh/date-fns@4.4.0",
+    "date-fns/": "https://esm.sh/date-fns@4.4.0/",
+    "date-fns-tz": "https://esm.sh/date-fns-tz@3.2.0?external=date-fns",
+    "./src/app.js": "./src/app.js?v=20261029-layout2",
+    "./src/sync.js": "./src/sync.js?v=20261029-layout2",
+    "./src/journal.js": "./src/journal.js?v=20261029-layout2",
+    "./src/data.js": "./src/data.js?v=20261029-layout2",
+    "./src/forms.js": "./src/forms.js?v=20261029-layout2",
+    "./src/tracking.js": "./src/tracking.js?v=20261029-layout2",
+    "./src/guest.js": "./src/guest.js?v=20261029-layout2",
+    "./src/mode.js": "./src/mode.js?v=20261029-layout2",
+    "./src/lib.js": "./src/lib.js?v=20261029-layout2",
+    "./src/start.js": "./src/start.js?v=20261029-layout2",
+    "./src/supabase.js": "./src/supabase.js?v=20261029-layout2",
+    "./src/ui.js": "./src/ui.js?v=20261029-layout2",
+    "./src/views.js": "./src/views.js?v=20261029-layout2"
+  }
+}
     </script>
   </head>
   <body>
@@ -26,6 +39,6 @@
       <div class="loading" role="status">Opening your journey...</div>
     </div>
     <noscript>Enable JavaScript to use My Journey.</noscript>
-    <script type="module" src="./src/start.js"></script>
+    <script type="module" src="./src/start.js?v=20261029-layout2"></script>
   </body>
 </html>
