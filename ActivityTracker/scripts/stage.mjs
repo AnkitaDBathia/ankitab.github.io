@@ -1,7 +1,8 @@
 // Copy browser-ready files for Pages. No compilation or bundling.
 import { mkdir, copyFile, readFile, writeFile } from "node:fs/promises";
 const app = new URL("../", import.meta.url),
-  output = new URL("../site/", app);
+  site = new URL("../site/", app),
+  output = new URL("ActivityTracker/", site);
 await mkdir(new URL("src/", output), { recursive: true });
 await copyFile(new URL("index.html", app), new URL("index.html", output));
 for (const file of [
@@ -36,4 +37,6 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY) {
 }
 await writeFile(new URL("config.js", output), config);
 await writeFile(new URL(".nojekyll", output), "");
+await copyFile(new URL("../index.html", app), new URL("index.html", site));
+await writeFile(new URL(".nojekyll", site), "");
 console.log("Static website copied to site/.");
