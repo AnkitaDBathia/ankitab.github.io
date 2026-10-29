@@ -153,6 +153,11 @@ export function createGuestStore(storage) {
         throw new Error("Activity unavailable.");
       if (row.goal !== null && (!Number.isFinite(row.goal) || row.goal <= 0))
         throw new Error("Goal must be positive.");
+      if (
+        row.goal_period != null &&
+        !["daily", "total"].includes(row.goal_period)
+      )
+        throw new Error("Invalid target period.");
       row.archived = row.archived ?? false;
     }
     if (table === "activity_logs") {

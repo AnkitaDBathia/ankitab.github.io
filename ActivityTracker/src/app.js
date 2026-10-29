@@ -1,7 +1,12 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { supabase } from "./supabase.js";
 import { guestMode } from "./mode.js";
-import { quickDoneValues, automaticOccurrence } from "./tracking.js";
+import {
+  quickDoneValues,
+  automaticOccurrence,
+  rolloverDay,
+  goalProgress,
+} from "./tracking.js";
 import { completed, onDay } from "./lib.js";
 import { GUEST_ID } from "./guest.js";
 import { deleteLog, loadJourney, saveRow } from "./data.js";
@@ -24,6 +29,34 @@ let data = null,
   authMode = location.hash.includes("type=recovery") ? "recovery" : "login",
   loadVersion = 0,
   loading = false;
+let lastToday = null;
+function checkDay() {
+  if (!data) return;
+  const today = localDay(new Date(), data.settings.timezone);
+  if (lastToday && lastToday !== today) {
+    state.day = rolloverDay(state.day, lastToday, today);
+    // Close stale entry forms so a new day never silently saves yesterday.
+    document.querySelectorAll("dialog").forEach((d) => d.remove());
+    notify("A new day - switched to today.");
+  }
+  lastToday = today;
+}
+function resumeDay() {
+  const previous = lastToday;
+  checkDay();
+  if (data && previous !== lastToday) render();
+}
+window.addEventListener("focus", resumeDay);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) resumeDay();
+});
+setInterval(() => {
+  if (!document.hidden && data) {
+    const previous = lastToday;
+    checkDay();
+    if (previous !== lastToday) render();
+  }
+}, 30000);
 const media = matchMedia("(prefers-color-scheme: dark)");
 function appearance() {
   const mode = data?.settings.appearance ?? "system";
@@ -59,6 +92,7 @@ async function refresh() {
     if (version !== loadVersion || session?.user.id !== owner) return;
     if (!data) state.day = localDay(new Date(), next.settings.timezone);
     data = next;
+    checkDay();
     render();
   } catch (e) {
     if (version === loadVersion) showError(e);
@@ -83,7 +117,35 @@ async function mutate(table, row, id) {
       : [...data[key], saved];
   }
   render();
-  notify("Saved. A little progress, recorded.");
+  if (table === "activity_logs") {
+    const activity = data.activities.find((a) => a.id === saved.activity_id);
+    const item = data.items.find((i) => i.id === saved.item_id);
+    const day = localDay(saved.occurred_at, data.settings.timezone);
+    const when =
+      day === localDay(new Date(), data.settings.timezone) ? "today" : day;
+    const progress =
+      goalProgress(activity, item, data.logs, day, data.settings.timezone) ??
+      goalProgress(activity, null, data.logs, day, data.settings.timezone);
+    notify(
+      `${item?.name ?? activity.name} saved for ${when}${progress ? ` - ${progress.text}` : ""}.`,
+      id ? undefined : () => undoEntry(saved.id),
+    );
+  } else notify("Saved.");
+}
+const undoPending = new Set();
+async function undoEntry(id) {
+  if (undoPending.has(id) || !data?.logs.some((l) => l.id === id)) return;
+  undoPending.add(id);
+  const owner = session?.user.id;
+  try {
+    await deleteLog(id);
+    if (session?.user.id !== owner) return;
+    data.logs = data.logs.filter((l) => l.id !== id);
+    render();
+    notify("Entry undone.");
+  } finally {
+    undoPending.delete(id);
+  }
 }
 function confirm(title, run) {
   sheet(
@@ -109,10 +171,19 @@ root.addEventListener("click", async (e) => {
   const target = e.target.closest("[data-action]");
   if (!target) return;
   const { action, id } = target.dataset;
+  const oldDay = state.day;
+  checkDay();
+  if (oldDay !== state.day) {
+    render();
+    return;
+  }
   const key = action + id;
   if (pending.has(key)) return;
   pending.add(key);
   target.disabled = true;
+  const originalLabel = target.textContent;
+  if (["mark-done", "water", "undo-log"].includes(action))
+    target.textContent = action === "undo-log" ? "Undoing..." : "Saving...";
   try {
     if (action === "auth-mode") {
       authMode = authMode === "reset" ? "login" : "reset";
@@ -133,6 +204,10 @@ root.addEventListener("click", async (e) => {
     const activity = data.activities.find((a) => a.id === id);
     const item = data.items.find((i) => i.id === id);
     const log = data.logs.find((l) => l.id === id);
+    if (action === "undo-log") {
+      await undoEntry(id);
+      return;
+    }
     if (action === "mark-done") {
       if (completed(onDay(data.logs, state.day, data.settings.timezone), id))
         return;
@@ -225,10 +300,13 @@ root.addEventListener("click", async (e) => {
       });
     }
   } catch (e) {
-    showError(e);
+    showError(
+      new Error(`Could not save the change. Please retry. ${e.message ?? e}`),
+    );
   } finally {
     pending.delete(key);
     target.disabled = false;
+    target.textContent = originalLabel;
   }
 });
 root.addEventListener("change", (e) => {
@@ -330,6 +408,8 @@ function acceptSession(next, event) {
     loadVersion++;
     loading = false;
     data = null;
+    lastToday = null;
+    document.querySelector(".toast")?.remove();
     document.querySelectorAll("dialog").forEach((d) => d.remove());
     state.filter = "";
     state.itemFilter = "";

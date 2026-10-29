@@ -31,6 +31,15 @@ beforeAll(
         "utf8",
       ),
     );
+    await db.exec(
+      readFileSync(
+        new URL(
+          "../supabase/migrations/202610290001_targets.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
     await asUser(alice);
     await db.exec("select public.initialize_journey();");
     water = (await db.query("select id from activities where seed_key='water'"))
@@ -50,6 +59,32 @@ afterAll(async () => {
   await db?.close();
 });
 describe("Real PostgreSQL migration, validation and RLS", () => {
+  it("stores positive daily targets and preserves overall item goals by default", async () => {
+    await asUser(alice);
+    await db.query("update activities set daily_goal=8 where id=$1", [water]);
+    expect(
+      (await db.query("select daily_goal from activities where id=$1", [water]))
+        .rows[0].daily_goal,
+    ).toBe("8");
+    await expect(
+      db.query("update activities set daily_goal=-1 where id=$1", [water]),
+    ).rejects.toThrow();
+    const item = await db.query(
+      "insert into activity_items(user_id,activity_id,name,goal) values($1,$2,'Target test',100) returning id,goal_period",
+      [alice, reading],
+    );
+    expect(item.rows[0].goal_period).toBe("total");
+    await db.query(
+      "update activity_items set goal_period='daily' where id=$1",
+      [item.rows[0].id],
+    );
+    await expect(
+      db.query("update activity_items set goal_period='weekly' where id=$1", [
+        item.rows[0].id,
+      ]),
+    ).rejects.toThrow();
+    await db.query("delete from activity_items where id=$1", [item.rows[0].id]);
+  });
   it("seeds exactly five private activities idempotently", async () => {
     await asUser(alice);
     await db.exec("select public.initialize_journey();");

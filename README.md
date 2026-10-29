@@ -157,3 +157,9 @@ Before considering deployment verified, test login/recovery, logging each activi
 ## Pages paths for this repository
 
 The repository is `AnkitaDBathia/ankitab.github.io`, a project site. With the custom GitHub Actions workflow, the app is published at `https://ankitadbathia.github.io/ankitab.github.io/`. With Pages configured to deploy the repository root directly from a branch, the app remains under `https://ankitadbathia.github.io/ankitab.github.io/ActivityTracker/index.html`. Both methods include the public configuration after `ActivityTracker/config.js` is committed. Use the exact app directory URL for Supabase authentication redirects, including the trailing slash.
+
+### Targets, undo, and date refresh
+
+Before publishing this update, run `ActivityTracker/supabase/migrations/202610290001_targets.sql` once in Supabase SQL Editor. It adds optional activity daily targets and daily/overall item target periods; existing item goals remain overall goals. Do not rerun the initial migration.
+
+Activity cards display target progress and remaining amounts. Completed activities have an Undo button for their latest completion on the selected date. New-entry save messages also offer Undo. Returning on a new calendar day switches the journal to today and closes stale dialogs. Intentionally selected past dates remain selected during the same day, with a visible date notice.

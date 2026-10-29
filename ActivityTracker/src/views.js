@@ -1,4 +1,9 @@
-import { completionOnly, quickDoneValues } from "./tracking.js";
+import {
+  completionOnly,
+  quickDoneValues,
+  latestCompletion,
+  goalProgress,
+} from "./tracking.js";
 import { guestMode as defaultGuestMode } from "./mode.js";
 import { formatInTimeZone } from "date-fns-tz";
 import { completed, localDay, moveDay, onDay, total } from "./lib.js";
@@ -11,7 +16,8 @@ const cardIcon = (a) =>
 export function activityAction(activity, daily, cls = "primary") {
   if (quickDoneValues(activity)) {
     const done = completed(daily, activity.id);
-    return `<div class="completion-actions"><button type="button" class="${h(cls)} ${done ? "is-done" : ""}" data-action="mark-done" data-id="${h(activity.id)}" ${done ? "disabled" : ""}>${done ? "? Done" : "? Mark done"}</button>${completionOnly(activity) ? "" : button("Add details", "entry", activity.id, "text-button")}</div>`;
+    const latest = latestCompletion(daily, activity.id);
+    return `<div class="completion-actions"><button type="button" class="${h(cls)} ${done ? "is-done" : ""}" data-action="mark-done" data-id="${h(activity.id)}" ${done ? "disabled" : ""}>${done ? "Done" : "Mark done"}</button>${latest?.id ? button("Undo", "undo-log", latest.id, "text-button") : ""}${completionOnly(activity) ? "" : button("Add details", "entry", activity.id, "text-button")}</div>`;
   }
   return button(
     activity.seed_key === "water"
@@ -20,6 +26,27 @@ export function activityAction(activity, daily, cls = "primary") {
     activity.seed_key === "water" ? "water" : "entry",
     activity.id,
     cls,
+  );
+}
+
+export function targetSummary(activity, item, data, day) {
+  const progress = goalProgress(
+    activity,
+    item,
+    data.logs,
+    day,
+    data.settings.timezone,
+  );
+  if (!progress) return "";
+  return `<div class="target-summary"><small>${item ? `${h(item.name)} - ` : ""}${progress.daily ? "Daily" : "Overall"} target: ${progress.value.toLocaleString()} / ${progress.goal.toLocaleString()} ${h(activity.quantity_field_id ? activity.unit : "entries")}</small><strong>${h(progress.text)}</strong><progress aria-label="${h(item?.name ?? activity.name)} target" max="${progress.goal}" value="${Math.max(0, Math.min(progress.goal, progress.value))}"></progress></div>`;
+}
+function cardTargets(activity, data, day) {
+  return (
+    targetSummary(activity, null, data, day) +
+    data.items
+      .filter((i) => i.activity_id === activity.id && !i.archived && i.goal)
+      .map((i) => targetSummary(activity, i, data, day))
+      .join("")
   );
 }
 
@@ -73,7 +100,7 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
   ];
   let content = "";
   if (page === "dashboard")
-    content = `<section class="welcome-banner"><div><span class="eyebrow">A MOMENT FOR YOU</span><h2>Grow at your own pace.</h2><p>There’s no perfect day. Just the little things you choose to do.</p><span class="badge">✓ ${active.filter((a) => daily.some((l) => l.activity_id === a.id)).length} of ${active.length} activities recorded</span></div><div class="botanical" aria-hidden="true">❧</div></section><div class="section-heading"><h2>Your daily rituals</h2><a href="#activities">All activities ↗</a></div><section class="cards">${active.map((a) => `<article class="activity-card tone-${h(a.icon)}"><div class="row between">${cardIcon(a)}<a class="icon-button" href="#activity/${h(a.id)}" aria-label="View ${h(a.name)}">↗</a></div><a href="#activity/${h(a.id)}"><h3>${h(a.name)}</h3></a><div class="metric">${quickDoneValues(a) ? (completed(daily, a.id) ? "Done" : "Not yet") : a.quantity_field_id ? total(daily, a.id).toLocaleString() : daily.filter((l) => l.activity_id === a.id).length}<span>${quickDoneValues(a) ? "" : h(a.quantity_field_id ? a.unit : "entries")}</span></div><p>${completed(daily, a.id) ? "✓ Practice completed" : h(a.description)}</p>${activityAction(a, daily, "card-action")}</article>`).join("")}<button class="add-card" data-action="create-activity"><span>＋</span><strong>A new little ritual</strong><small>Create your own activity</small></button></section><div class="section-heading"><h2>Today’s moments</h2><a href="#history">View history ↗</a></div><section class="panel">${logList(daily.slice(0, 5), data)}</section>`;
+    content = `<section class="welcome-banner"><div><span class="eyebrow">A MOMENT FOR YOU</span><h2>Grow at your own pace.</h2><p>There’s no perfect day. Just the little things you choose to do.</p><span class="badge">✓ ${active.filter((a) => daily.some((l) => l.activity_id === a.id)).length} of ${active.length} activities recorded</span></div><div class="botanical" aria-hidden="true">❧</div></section><div class="section-heading"><h2>Your daily rituals</h2><a href="#activities">All activities ↗</a></div><section class="cards">${active.map((a) => `<article class="activity-card tone-${h(a.icon)}"><div class="row between">${cardIcon(a)}<a class="icon-button" href="#activity/${h(a.id)}" aria-label="View ${h(a.name)}">↗</a></div><a href="#activity/${h(a.id)}"><h3>${h(a.name)}</h3></a><div class="metric">${quickDoneValues(a) ? (completed(daily, a.id) ? "Done" : "Not yet") : a.quantity_field_id ? total(daily, a.id).toLocaleString() : daily.filter((l) => l.activity_id === a.id).length}<span>${quickDoneValues(a) ? "" : h(a.quantity_field_id ? a.unit : "entries")}</span></div><p>${completed(daily, a.id) ? "✓ Practice completed" : h(a.description)}</p>${cardTargets(a, data, day)}${activityAction(a, daily, "card-action")}</article>`).join("")}<button class="add-card" data-action="create-activity"><span>＋</span><strong>A new little ritual</strong><small>Create your own activity</small></button></section><div class="section-heading"><h2>Today’s moments</h2><a href="#history">View history ↗</a></div><section class="panel">${logList(daily.slice(0, 5), data)}</section>`;
   if (page === "activities")
     content = `<div class="section-heading"><label class="check"><input type="checkbox" data-change="archived" ${showArchived ? "checked" : ""}> Show archived</label>${button("＋ Create activity", "create-activity", "", "primary")}</div><section class="panel">${data.activities
       .filter((a) => showArchived || !a.archived)
@@ -85,14 +112,14 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
       .join("")}</section>`;
   if (detail) {
     const a = detail;
-    content = `<div class="detail-summary"><div class="panel stat"><small>SELECTED DAY</small><strong>${quickDoneValues(a) ? (completed(daily, a.id) ? "Done" : "Not yet") : a.quantity_field_id ? total(daily, a.id) : daily.filter((l) => l.activity_id === a.id).length} <span>${quickDoneValues(a) ? "" : h(a.quantity_field_id ? a.unit : "entries")}</span></strong>${completed(daily, a.id) ? "✓ Completed" : ""}</div><div class="panel stat"><small>ALL TIME</small><strong>${a.quantity_field_id ? total(data.logs, a.id) : data.logs.filter((l) => l.activity_id === a.id).length} <span>${h(a.quantity_field_id ? a.unit : "entries")}</span></strong></div></div><div class="section-heading">${button("Configure activity", "configure", a.id)}${a.archived ? "<span>Archived</span>" : activityAction(a, daily, "primary")}</div>`;
+    content = `<div class="detail-summary"><div class="panel stat"><small>SELECTED DAY</small><strong>${quickDoneValues(a) ? (completed(daily, a.id) ? "Done" : "Not yet") : a.quantity_field_id ? total(daily, a.id) : daily.filter((l) => l.activity_id === a.id).length} <span>${quickDoneValues(a) ? "" : h(a.quantity_field_id ? a.unit : "entries")}</span></strong>${completed(daily, a.id) ? "✓ Completed" : ""}</div><div class="panel stat"><small>ALL TIME</small><strong>${a.quantity_field_id ? total(data.logs, a.id) : data.logs.filter((l) => l.activity_id === a.id).length} <span>${h(a.quantity_field_id ? a.unit : "entries")}</span></strong></div></div>${targetSummary(a, null, data, day)}<div class="section-heading">${button("Configure activity", "configure", a.id)}${a.archived ? "<span>Archived</span>" : activityAction(a, daily, "primary")}</div>`;
     if (a.item_based)
       content += `<div class="section-heading"><h2>${a.seed_key === "reading" ? "Your bookshelf" : a.seed_key === "mantra" ? "Your mantras" : "Your items"}</h2>${button("＋ Add item", "add-item", a.id)}</div><section class="panel">${
         data.items
           .filter((i) => i.activity_id === a.id)
           .map(
             (i) =>
-              `<article class="item-row"><div class="grow"><strong>${h(i.name)}</strong><p>${h([i.author, i.archived ? "Archived" : a.seed_key === "reading" ? i.status : "", i.description].filter(Boolean).join(" · "))}</p><small>${total(daily, a.id, i.id)} today · ${total(data.logs, a.id, i.id)} ${h(a.unit)} all time${i.goal ? ` / ${i.goal} goal` : ""}</small>${i.goal ? `<progress aria-label="${h(i.name)} goal progress" max="${i.goal}" value="${total(data.logs, a.id, i.id)}"></progress>` : ""}</div>${!i.archived && !a.archived ? button("Log", "entry-item", i.id) : ""}${button("Edit", "edit-item", i.id)}${button(i.archived ? "Restore" : "Archive", "archive-item", i.id)}</article>`,
+              `<article class="item-row"><div class="grow"><strong>${h(i.name)}</strong><p>${h([i.author, i.archived ? "Archived" : a.seed_key === "reading" ? i.status : "", i.description].filter(Boolean).join(" · "))}</p><small>${total(daily, a.id, i.id)} today · ${total(data.logs, a.id, i.id)} ${h(a.unit)} all time</small>${targetSummary(a, i, data, day)}</div>${!i.archived && !a.archived ? button("Log", "entry-item", i.id) : ""}${button("Edit", "edit-item", i.id)}${button(i.archived ? "Restore" : "Archive", "archive-item", i.id)}</article>`,
           )
           .join("") || empty
       }</section>`;
@@ -124,7 +151,7 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
   if (!content)
     content =
       '<div class="empty"><h2>Page not found</h2><a href="#dashboard">Return to My day</a></div>';
-  return `<div class="app"><aside class="sidebar"><a class="brand" href="#dashboard"><span>❧</span> My Journey</a><div class="sidebar-caption">YOUR EVERYDAY, WITH INTENTION</div><nav>${nav.map(([id, label, symbol]) => `<a href="#${id}" class="${page === id || (id === "activities" && detail) ? "selected" : ""}"><span aria-hidden="true">${symbol}</span>${label}</a>`).join("")}</nav><div class="sidebar-bottom"><div class="daily-note">❧<p>Little by little,<br>a little becomes a lot.</p></div><div class="profile"><span class="avatar">${h(data.settings.display_name[0])}</span><div class="grow"><strong>${h(data.settings.display_name)}</strong><small>One day at a time</small></div>${guestMode ? "" : button("Sign out", "signout")}</div></div></aside><div class="workspace"><header class="topbar"><span>YOUR PERSONAL JOURNAL</span><div><span class="private-dot"></span>${guestMode ? "Guest journal" : "Private space"} ${button("Refresh", "refresh")}${guestMode ? "" : button("Sign out", "signout", "", "mobile-signout")}</div></header><main>${guestMode ? `<p class="guest-notice" role="status">Temporary guest mode: entries are saved only in this browser, not Supabase. Clearing browser data removes them. Anyone using this browser profile can access them.</p>` : ""}<div class="error-banner" role="alert" hidden data-error></div><div class="page-heading"><div><span class="eyebrow">MAKE SPACE FOR YOURSELF</span><h1>${h(detail?.name ?? titles[page] ?? "Your journey")}</h1><p>${h(detail?.description ?? (page === "dashboard" ? formatInTimeZone(`${day}T12:00:00Z`, "UTC", "EEEE, MMMM d, yyyy") : "One small step at a time."))}</p></div>${page === "dashboard" || page === "history" || detail ? dates : ""}</div>${content}<footer>Made for your everyday. ❧ One small step at a time.</footer></main></div></div>`;
+  return `<div class="app"><aside class="sidebar"><a class="brand" href="#dashboard"><span>❧</span> My Journey</a><div class="sidebar-caption">YOUR EVERYDAY, WITH INTENTION</div><nav>${nav.map(([id, label, symbol]) => `<a href="#${id}" class="${page === id || (id === "activities" && detail) ? "selected" : ""}"><span aria-hidden="true">${symbol}</span>${label}</a>`).join("")}</nav><div class="sidebar-bottom"><div class="daily-note">❧<p>Little by little,<br>a little becomes a lot.</p></div><div class="profile"><span class="avatar">${h(data.settings.display_name[0])}</span><div class="grow"><strong>${h(data.settings.display_name)}</strong><small>One day at a time</small></div>${guestMode ? "" : button("Sign out", "signout")}</div></div></aside><div class="workspace"><header class="topbar"><span>YOUR PERSONAL JOURNAL</span><div><span class="private-dot"></span>${guestMode ? "Guest journal" : "Private space"} ${button("Refresh", "refresh")}${guestMode ? "" : button("Sign out", "signout", "", "mobile-signout")}</div></header><main>${guestMode ? `<p class="guest-notice" role="status">Temporary guest mode: entries are saved only in this browser, not Supabase. Clearing browser data removes them. Anyone using this browser profile can access them.</p>` : ""}<div class="error-banner" role="alert" hidden data-error></div><div class="page-heading"><div><span class="eyebrow">MAKE SPACE FOR YOURSELF</span><h1>${h(detail?.name ?? titles[page] ?? "Your journey")}</h1><p>${h(detail?.description ?? (page === "dashboard" ? formatInTimeZone(`${day}T12:00:00Z`, "UTC", "EEEE, MMMM d, yyyy") : "One small step at a time."))}</p></div>${page === "dashboard" || page === "history" || detail ? dates : ""}</div>${day !== today && (page === "dashboard" || detail || page === "history") ? `<p class="date-notice" role="status">Viewing ${h(day)} - entries will be saved for this date. ${button("Back to today", "today")}</p>` : ""}${content}<footer>Made for your everyday. ❧ One small step at a time.</footer></main></div></div>`;
 }
 function reports(data, state) {
   const period = state.period ?? 7,

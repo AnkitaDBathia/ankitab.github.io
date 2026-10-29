@@ -1308,3 +1308,8 @@ progress {
 .sheet details > summary {
   font-weight: 600;
 }
+.target-summary { display: grid; gap: .25rem; margin: .6rem 0; font-size: .85rem; }
+.target-summary progress { width: 100%; height: .35rem; accent-color: var(--primary, #285c4f); }
+.date-notice { padding: .6rem .8rem; border: 1px solid currentColor; border-radius: .6rem; font-size: .85rem; }
+.toast { max-width: min(92vw, 580px); }
+.toast button { margin-left: .4rem; padding: .35rem .6rem; }

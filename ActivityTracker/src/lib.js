@@ -66,6 +66,11 @@ export const completed = (logs, id) =>
       ),
   );
 export function validateActivity(a) {
+  if (
+    a.daily_goal != null &&
+    (!Number.isFinite(a.daily_goal) || a.daily_goal <= 0)
+  )
+    throw new Error("Daily target must be positive.");
   if (!a.name.trim()) throw new Error("Activity name is required.");
   if (new Set(a.fields.map((f) => f.id)).size !== a.fields.length)
     throw new Error("Field IDs must be unique.");

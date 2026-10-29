@@ -117,7 +117,15 @@ export function itemForm(activity, save, item) {
  ${input("Name", "name", item?.name, "text", 'required maxlength="200"')}
  ${activity.seed_key === "reading" ? input("Author", "author", item?.author) + select("Status", "status", ["Not Started", "Reading", "Completed"], item?.status ?? "Not Started") : ""}
  ${textarea("Description", "description", item?.description)}
- ${input(`Goal / target (${activity.unit})`, "goal", item?.goal, "number", 'min="0.01" step="any"')}
+ ${input(`Goal / target (${activity.unit})`, "goal", item?.goal, "number", 'min="0.01" step="any"')}${select(
+   "Target period",
+   "goal_period",
+   [
+     ["total", "Overall target"],
+     ["daily", "Daily target"],
+   ],
+   item?.goal_period ?? "total",
+ )}
  <button class="primary wide">Save item</button>`,
     async (form) =>
       save(
@@ -128,6 +136,7 @@ export function itemForm(activity, save, item) {
           description: valueOf(form, "description"),
           status: valueOf(form, "status") || "Not Started",
           goal: numberOrNull(valueOf(form, "goal")),
+          goal_period: valueOf(form, "goal_period"),
         },
         item?.id,
       ),
@@ -167,9 +176,18 @@ export function activityForm(save, activity) {
       originalMode,
     )}
     <p class="muted" data-tracking-help></p>
+    ${input("Daily target (optional)", "daily_goal", activity?.daily_goal, "number", 'min="0.01" step="any"')}
     <div data-quantity>${input("What are you counting?", "unit", activity?.unit ?? "", "text", 'placeholder="e.g. glasses"')}${input("Quick-add amounts", "presets", activity?.presets?.join(", ") || "1, 2, 5", "text", 'placeholder="1, 2, 5"')}</div>
     <div data-custom>${button("Edit custom fields", "advanced-editor")}<p class="muted">Your existing fields are kept unless you choose another tracking style.</p></div>
-    <details><summary>More options</summary>${textarea("Description (optional)", "description", activity?.description)}${select("Icon", "icon", Object.keys(symbols), activity?.icon ?? "sparkles")}${input("Display order", "position", activity?.position ?? 5, "number", "required")}${checkbox("Track separate items (such as books)", "item_based", activity?.item_based)}</details>
+    <details><summary>More options</summary>${textarea("Description (optional)", "description", activity?.description)}${select(
+      "Icon",
+      "icon",
+      Object.entries(symbols).map(([name, symbol]) => [
+        name,
+        `${symbol} ${name.charAt(0).toUpperCase() + name.slice(1)}`,
+      ]),
+      activity?.icon ?? "sparkles",
+    )}${input("Display order", "position", activity?.position ?? 5, "number", "required")}${checkbox("Track separate items (such as books)", "item_based", activity?.item_based)}</details>
     <p class="muted">Changes apply to new entries. Your history is preserved.</p>
     <button class="primary wide" type="submit">Save activity</button>`,
     async (form) => {
@@ -193,6 +211,7 @@ export function activityForm(save, activity) {
         description: valueOf(form, "description"),
         icon: valueOf(form, "icon"),
         position: Number(valueOf(form, "position")),
+        daily_goal: numberOrNull(valueOf(form, "daily_goal")),
         item_based: checked(form, "item_based"),
         fields,
         unit: mode === "done" ? "" : valueOf(form, "unit"),
@@ -239,6 +258,7 @@ export function activityForm(save, activity) {
         description: valueOf(form, "description"),
         icon: valueOf(form, "icon"),
         position: Number(valueOf(form, "position")),
+        daily_goal: numberOrNull(valueOf(form, "daily_goal")),
         item_based: checked(form, "item_based"),
         unit: valueOf(form, "unit"),
         fields: activity?.fields ?? [blankField()],
@@ -256,10 +276,18 @@ export function advancedActivityForm(save, activity) {
     activity ? "Configure activity" : "Create activity",
     `
  ${input("Activity name", "name", activity?.name, "text", 'required maxlength="100"')}${textarea("Description", "description", activity?.description)}
- <div class="two">${select("Icon", "icon", Object.keys(symbols), activity?.icon ?? "sparkles")}${input("Unit (e.g. steps)", "unit", activity?.unit)}</div>
+ <div class="two">${select(
+   "Icon",
+   "icon",
+   Object.entries(symbols).map(([name, symbol]) => [
+     name,
+     `${symbol} ${name.charAt(0).toUpperCase() + name.slice(1)}`,
+   ]),
+   activity?.icon ?? "sparkles",
+ )}${input("Unit (e.g. steps)", "unit", activity?.unit)}</div>
  <div class="two">${input("Display order", "position", activity?.position ?? 5, "number", "required")}${input("Quick presets (comma separated)", "presets", activity?.presets.join(", ") ?? "1, 5, 10")}</div>
  ${checkbox("Uses individual items (books, mantras, etc.)", "item_based", activity?.item_based)}
- <h3>Entry fields</h3><p class="muted">Changes apply to new entries. Historical records keep their original fields. Remove and recreate a field to change its type.</p>
+ ${input("Daily target (optional)", "daily_goal", activity?.daily_goal, "number", 'min="0.01" step="any"')}<h3>Entry fields</h3><p class="muted">Changes apply to new entries. Historical records keep their original fields. Remove and recreate a field to change its type.</p>
  <div data-fields></div>${button("+ Add field", "add-field")}
  ${select("Field to total in summaries", "quantity", [], activity?.quantity_field_id)}
  <button class="primary wide" type="submit">Save activity</button>`,
@@ -271,6 +299,7 @@ export function advancedActivityForm(save, activity) {
         icon: valueOf(form, "icon"),
         unit: valueOf(form, "unit"),
         position: Number(valueOf(form, "position")),
+        daily_goal: numberOrNull(valueOf(form, "daily_goal")),
         item_based: checked(form, "item_based"),
         fields: fields.map((f, i) => ({ ...f, position: i })),
         presets: valueOf(form, "presets").trim()

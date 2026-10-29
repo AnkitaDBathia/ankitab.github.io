@@ -9,6 +9,26 @@ export const escapeHTML = (value = "") =>
   );
 export const h = escapeHTML;
 export const symbols = {
+  yoga: "🧘",
+  exercise: "🏋️",
+  running: "🏃",
+  cycling: "🚴",
+  swimming: "🏊",
+  sleep: "🛌",
+  food: "🥗",
+  fruit: "🍎",
+  cooking: "🍳",
+  medicine: "💊",
+  music: "🎵",
+  art: "🎨",
+  study: "🎓",
+  work: "💼",
+  prayer: "🙏",
+  gardening: "🌱",
+  cleaning: "🧹",
+  money: "💰",
+  target: "🎯",
+  gratitude: "🌻",
   water: "◉",
   book: "▤",
   sun: "☀",
@@ -114,6 +134,11 @@ export function sheet(title, content, onSave) {
     const buttons = [...dialog.querySelectorAll("button")];
     const states = buttons.map((b) => b.disabled);
     buttons.forEach((b) => (b.disabled = true));
+    const submitter =
+      e.submitter ??
+      form.querySelector('button[type="submit"], button.primary');
+    const label = submitter?.textContent;
+    if (submitter) submitter.textContent = "Saving...";
     form.querySelector(".error").textContent = "";
     try {
       await onSave(form, e.submitter);
@@ -124,17 +149,41 @@ export function sheet(title, content, onSave) {
     } finally {
       busy = false;
       buttons.forEach((b, i) => (b.disabled = states[i]));
+      if (submitter) submitter.textContent = label;
     }
   });
   dialog.showModal();
   return { form, dialog, close };
 }
-export function notify(message) {
+export function notify(message, undo) {
   document.querySelector(".toast")?.remove();
   const toast = document.createElement("div");
   toast.className = "toast";
   toast.setAttribute("role", "status");
   toast.textContent = message;
+  if (undo) {
+    const action = document.createElement("button");
+    action.type = "button";
+    action.textContent = "Undo";
+    action.onclick = async () => {
+      action.disabled = true;
+      action.textContent = "Undoing...";
+      try {
+        await undo();
+        toast.remove();
+      } catch {
+        action.disabled = false;
+        action.textContent = "Retry undo";
+        toast.firstChild.textContent = "Could not undo. ";
+      }
+    };
+    toast.append(" ", action);
+    const dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.textContent = "Dismiss";
+    dismiss.onclick = () => toast.remove();
+    toast.append(dismiss);
+  }
   document.body.append(toast);
-  setTimeout(() => toast.remove(), 4000);
+  if (!undo) setTimeout(() => toast.remove(), 4000);
 }
