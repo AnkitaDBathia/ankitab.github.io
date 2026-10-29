@@ -1,3 +1,4 @@
+import { moods, supportsMood, attachDictation } from "./journal.js";
 import { formatInTimeZone } from "date-fns-tz";
 import {
   completionOnly,
@@ -38,6 +39,7 @@ export function entryForm(
   edit,
   initialItem,
 ) {
+  const moodEnabled = supportsMood(activity) || !!edit?.mood || !!edit?.mood_note;
   const fields = edit?.field_snapshot ?? activity.fields;
   const values =
     edit?.values ??
@@ -64,6 +66,7 @@ export function entryForm(
  ${activity.item_based ? select("Item", "item", [["", "Choose an item…"], ...items.filter((i) => !i.archived || i.id === edit?.item_id).map((i) => [i.id, i.name])], item, edit ? "disabled" : "required") : ""}
  ${!edit && activity.quantity_field_id ? `<div class="presets">${activity.presets.map((p) => `<button type="submit" data-preset="${p}" formnovalidate>+${p}</button>`).join("")}</div>` : ""}
  ${fields.map((f) => fieldControl(f, values[f.id])).join("")}
+ ${moodEnabled ? `<details ${edit?.mood || edit?.mood_note ? "open" : ""}><summary>How did you feel? (optional)</summary>${select("Mood", "mood", [["", "Skip"], ...moods], edit?.mood ?? "")}${textarea("A note to yourself", "mood_note", edit?.mood_note ?? "")}${select("Voice language", "voice_language", [["en-IN", "English"], ["hi-IN", "Hindi"], ["gu-IN", "Gujarati"]], "en-IN")}<button type="button" data-dictate>Voice note</button><p class="small muted">Voice input may use your browser's online transcription service. Only the text is saved with your entry.</p><p role="status" data-voice-status></p></details>` : ""}
  <p class="muted">${edit ? "Original date and time are kept unless changed." : `Logging for ${h(date)}. Time is recorded automatically.`}</p>
  <details data-timestamp><summary>Change date or time</summary><div class="two">${input("Date", "date", date, "date", "required")}${input(`Time (${timezone})`, "time", initialTime, "time", "required")}</div></details>
  <button class="primary wide" type="submit">${edit ? "Save changes" : "Save entry"}</button>`,
@@ -88,6 +91,7 @@ export function entryForm(
               }
             : {}),
           values,
+          ...(moodEnabled ? {mood: valueOf(form,"mood") || null, mood_note: valueOf(form,"mood_note")} : {}),
           occurred_at:
             valueOf(form, "date") === date &&
             valueOf(form, "time") === initialTime
@@ -102,6 +106,7 @@ export function entryForm(
       );
     },
   );
+  if (moodEnabled) attachDictation(form);
   const updateTotal = () => {
     form.querySelector("[data-total]").textContent =
       `${total(onDay(logs, valueOf(form, "date"), timezone), activity.id, activity.item_based ? valueOf(form, "item") : undefined)} ${activity.unit} on this day`;

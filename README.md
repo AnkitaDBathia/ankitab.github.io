@@ -163,3 +163,7 @@ The repository is `AnkitaDBathia/ankitab.github.io`, a project site. With the cu
 Before publishing this update, run `ActivityTracker/supabase/migrations/202610290001_targets.sql` once in Supabase SQL Editor. It adds optional activity daily targets and daily/overall item target periods; existing item goals remain overall goals. Do not rerun the initial migration.
 
 Activity cards display target progress and remaining amounts. Completed activities have an Undo button for their latest completion on the selected date. New-entry save messages also offer Undo. Returning on a new calendar day switches the journal to today and closes stale dialogs. Intentionally selected past dates remain selected during the same day, with a visible date notice.
+
+### Favourites, search, and mood notes
+
+Run `ActivityTracker/supabase/migrations/202610290002_favourites_mood.sql` once before publishing these features. Star mantras to sort them first; History has an optional Search panel searching all dates. Yoga and meditation entry forms offer optional mood and note fields. After one-tap completion, Mood edits that same entry. Voice notes use browser speech recognition when supported, with English/Hindi/Gujarati choices. The browser may send audio to its transcription service; the app stores only the editable resulting text. Typing is always available.

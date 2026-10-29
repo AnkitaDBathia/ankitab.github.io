@@ -1319,3 +1319,43 @@ progress {
 
 .quick-amounts { display: flex; flex-wrap: wrap; gap: .25rem; justify-content: flex-end; }
 .target-action { flex-wrap: wrap; }
+
+.history-search { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .5rem; }
+.history-search input { flex: 1; min-width: 160px; }
+[data-action="favourite-item"] { padding: .15rem .4rem; font-size: 1.1rem; }
+.dashboard-main { padding: 22px 28px; }
+.dashboard-main .page-heading { margin-bottom: 14px; gap: 12px; }
+.dashboard-main .page-heading h1 { font-size: 28px; margin: 4px 0; }
+.dashboard-main .page-heading .eyebrow { display: none; }
+.day-summary { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 10px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-size: 12px; }
+.day-summary span { color: var(--muted); }
+.dashboard-main .section-heading { margin: 18px 0 10px; }
+/* Independent card heights avoid stretching every card to the longest mantra list. */
+.dashboard-main .cards { display: block; columns: 3; column-gap: 14px; }
+.dashboard-main .activity-card,
+.dashboard-main .add-card { break-inside: avoid; width: 100%; margin: 0 0 14px; min-height: 0; }
+.dashboard-main .activity-card { padding: 14px; }
+.activity-card-heading { display: flex; align-items: center; gap: 10px; }
+.dashboard-main .activity-icon { width: 34px; height: 34px; border-radius: 9px; }
+.dashboard-main .activity-card h3 { margin: 0; font-size: 14px; }
+.dashboard-main .metric { font-size: 28px; margin: 8px 0 0; line-height: 1.2; }
+.dashboard-main .activity-card p { margin: 5px 0 10px; min-height: 0; font-size: 11px; }
+.dashboard-main .card-action { margin-top: 8px; min-height: 36px; }
+.dashboard-main .completion-actions { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.dashboard-main .completion-actions .card-action { width: auto; flex: 1 1 100px; margin-top: 0; }
+.dashboard-main .target-summary { padding-top: 8px; margin: 8px 0; border-top: 1px solid var(--border); gap: 4px; }
+.dashboard-main .target-action { gap: 5px; }
+.dashboard-main .target-action strong { font-size: 12px; }
+.dashboard-main .target-log { min-height: 32px; }
+.dashboard-main .add-card { padding: 16px; }
+.dashboard-main .add-card > span { font-size: 24px; }
+@media (max-width: 1150px) {
+  .dashboard-main .cards { columns: 2; }
+}
+@media (max-width: 760px) {
+  .dashboard-main { padding: 16px; }
+  .dashboard-main .page-heading h1 { font-size: 24px; }
+  .dashboard-main .cards { columns: 1; }
+  .dashboard-main .target-log,
+  .dashboard-main .completion-actions button { min-height: 40px; }
+}

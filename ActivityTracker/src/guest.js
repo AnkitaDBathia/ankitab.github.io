@@ -1,3 +1,4 @@
+import { moods } from "./journal.js";
 import { validateActivity, validateFields } from "./lib.js";
 export const GUEST_ID = "local-guest";
 export const STORAGE_KEY = "my-journey.guest.v1";
@@ -148,6 +149,7 @@ export function createGuestStore(storage) {
         throw new Error("Item mode cannot change after logging.");
     }
     if (table === "activity_items") {
+      if (row.favourite != null && typeof row.favourite !== "boolean") throw new Error("Invalid favourite.");
       if (!row.name.trim()) throw new Error("Item name is required.");
       if (!data.activities.some((a) => a.id === row.activity_id))
         throw new Error("Activity unavailable.");
@@ -161,6 +163,8 @@ export function createGuestStore(storage) {
       row.archived = row.archived ?? false;
     }
     if (table === "activity_logs") {
+      if (row.mood != null && !moods.includes(row.mood)) throw new Error("Invalid mood.");
+      if (row.mood_note != null && (typeof row.mood_note !== "string" || row.mood_note.length > 10000)) throw new Error("Invalid mood note.");
       const a = data.activities.find((a) => a.id === row.activity_id);
       if (!a || (!old && a.archived)) throw new Error("Activity unavailable.");
       if (

@@ -225,9 +225,20 @@ root.addEventListener("click", async (e) => {
       return;
     }
     if (!data) return;
+    if (action === "toggle-search") {
+      state.searchOpen = !state.searchOpen;
+      state.searchQuery = "";
+      render();
+      root.querySelector('input[name="query"]')?.focus();
+      return;
+    }
     const activity = data.activities.find((a) => a.id === id);
     const item = data.items.find((i) => i.id === id);
     const log = data.logs.find((l) => l.id === id);
+    if (action === "favourite-item") {
+      await mutate("activity_items", {favourite: !item.favourite}, item.id);
+      return;
+    }
     if (action === "undo-log") {
       await undoEntry(id);
       return;
@@ -382,6 +393,11 @@ root.addEventListener("submit", async (e) => {
   const kind = form.dataset.form;
   if (!kind) return;
   e.preventDefault();
+  if (kind === "history-search") {
+    state.searchQuery = valueOf(form,"query").trim();
+    render();
+    return;
+  }
   if (form.dataset.busy) return;
   form.dataset.busy = "true";
   const submit = form.querySelector('button[type="submit"],button:not([type])');
@@ -451,6 +467,8 @@ function acceptSession(next, event) {
     lastToday = null;
     document.querySelector(".toast")?.remove();
     document.querySelectorAll("dialog").forEach((d) => d.remove());
+    state.searchQuery = "";
+    state.searchOpen = false;
     state.filter = "";
     state.itemFilter = "";
   }

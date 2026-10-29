@@ -7,6 +7,7 @@ await copyFile(new URL("index.html", app), new URL("index.html", output));
 for (const file of [
   "app.js",
   "sync.js",
+  "journal.js",
   "data.js",
   "forms.js",
   "tracking.js",

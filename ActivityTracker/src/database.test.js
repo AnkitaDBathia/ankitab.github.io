@@ -40,6 +40,7 @@ beforeAll(
         "utf8",
       ),
     );
+    await db.exec(readFileSync(new URL("../supabase/migrations/202610290002_favourites_mood.sql", import.meta.url), "utf8"));
     await asUser(alice);
     await db.exec("select public.initialize_journey();");
     water = (await db.query("select id from activities where seed_key='water'"))
@@ -59,6 +60,20 @@ afterAll(async () => {
   await db?.close();
 });
 describe("Real PostgreSQL migration, validation and RLS", () => {
+  it("persists favourites and mood notes with ownership and mood validation", async () => {
+    await asUser(alice);
+    const item = (await db.query("insert into activity_items(user_id,activity_id,name,favourite) values($1,$2,'Pinned',true) returning id,favourite", [alice,reading])).rows[0];
+    expect(item.favourite).toBe(true);
+    const log = (await db.query("insert into activity_logs(user_id,activity_id,values,mood,mood_note) values($1,$2,'{\"quantity\":1}','Calm','Peaceful') returning id,mood_note", [alice,water])).rows[0];
+    expect(log.mood_note).toBe("Peaceful");
+    await expect(db.query("update activity_logs set mood='invalid' where id=$1", [log.id])).rejects.toThrow();
+    await asUser(bob);
+    expect((await db.query("select id from activity_logs where id=$1", [log.id])).rows).toHaveLength(0);
+    expect((await db.query("update activity_items set favourite=false where id=$1 returning id", [item.id])).rows).toHaveLength(0);
+    await asUser(alice);
+    await db.query("delete from activity_logs where id=$1", [log.id]);
+    await db.query("delete from activity_items where id=$1", [item.id]);
+  });
   it("stores positive daily targets and preserves overall item goals by default", async () => {
     await asUser(alice);
     await db.query("update activities set daily_goal=8 where id=$1", [water]);
