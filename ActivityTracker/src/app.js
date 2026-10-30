@@ -1,3 +1,4 @@
+import { signIn } from "./login.js";
 import { formatInTimeZone } from "date-fns-tz";
 import { supabase } from "./supabase.js";
 import { guestMode } from "./mode.js";
@@ -428,7 +429,7 @@ root.addEventListener("submit", async (e) => {
             ? await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: new URL("../", import.meta.url).href,
               })
-            : await supabase.auth.signInWithPassword({ email, password });
+            : await signIn(supabase, email, password, window.MY_JOURNEY_CONFIG);
       if (result.error) throw result.error;
       if (authMode === "recovery") {
         authMode = "login";
@@ -436,7 +437,7 @@ root.addEventListener("submit", async (e) => {
         await refresh();
         notify("Password updated.");
       } else if (authMode === "reset")
-        message.textContent = "Check your email for a recovery link.";
+        message.textContent = "If this email is registered, you will receive a recovery link. Without a recovery email, ask the administrator to reset your password.";
     }
   } catch (e) {
     message.textContent = e.message;

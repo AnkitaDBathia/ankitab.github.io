@@ -20,7 +20,7 @@ beforeAll(
   async () => {
     db = new PGlite();
     await db.exec(
-      `create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;insert into auth.users values('${alice}'),('${bob}');`,
+      `create role service_role;create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;insert into auth.users values('${alice}'),('${bob}');`,
     );
     await db.exec(
       readFileSync(
@@ -41,6 +41,7 @@ beforeAll(
       ),
     );
     await db.exec(readFileSync(new URL("../supabase/migrations/202610290002_favourites_mood.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("../supabase/migrations/202610300001_usernames.sql", import.meta.url), "utf8"));
     await asUser(alice);
     await db.exec("select public.initialize_journey();");
     water = (await db.query("select id from activities where seed_key='water'"))
@@ -60,6 +61,19 @@ afterAll(async () => {
   await db?.close();
 });
 describe("Real PostgreSQL migration, validation and RLS", () => {
+  it("keeps usernames private and limits server-side login attempts", async () => {
+    await db.exec("reset role;");
+    await db.query("insert into login_usernames(username,user_id) values('alice', $1)", [alice]);
+    await asUser(bob);
+    await expect(db.query("select * from login_usernames")).rejects.toThrow();
+    await expect(db.query("select allow_username_login('test')")).rejects.toThrow();
+    await db.exec("reset role; set role service_role;");
+    for (let i=0;i<10;i++) expect((await db.query("select allow_username_login('test') as allowed")).rows[0].allowed).toBe(true);
+    expect((await db.query("select allow_username_login('test') as allowed")).rows[0].allowed).toBe(false);
+    await db.exec("reset role;");
+    await db.query("update username_login_attempts set started_at=now()-interval '16 minutes' where key='test'");
+    expect((await db.query("select allow_username_login('test') as allowed")).rows[0].allowed).toBe(true);
+  });
   it("persists favourites and mood notes with ownership and mood validation", async () => {
     await asUser(alice);
     const item = (await db.query("insert into activity_items(user_id,activity_id,name,favourite) values($1,$2,'Pinned',true) returning id,favourite", [alice,reading])).rows[0];
