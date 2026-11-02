@@ -10,7 +10,7 @@ export function searchLogs(logs, data, query) {
   return logs.filter(log => {
     const activity = data.activities.find(a => a.id === log.activity_id);
     const item = data.items.find(i => i.id === log.item_id);
-    const text = [activity?.name,item?.name,item?.author,log.mood,log.mood_note,
+    const text = [activity?.name,item?.name,item?.author,log.mood,log.mood_note,log.outcome,log.habit_note,
       ...Object.values(log.values ?? {})].join(' ').toLocaleLowerCase();
     return words.every(word => text.includes(word));
   });

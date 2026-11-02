@@ -1382,3 +1382,7 @@ progress {
   .dashboard-main .has-item-targets .card-targets { grid-template-columns: 1fr; }
   .dashboard-main .target-log { min-height: 40px; }
 }
+
+.habit-days, .habit-outcomes { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+.habit-outcomes button { min-height:40px; padding:8px 12px; }
+.habit-days .check { margin:0; }

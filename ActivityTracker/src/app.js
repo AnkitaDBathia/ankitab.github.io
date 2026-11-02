@@ -1,5 +1,6 @@
+import { typeOf, habitDay, dayConfiguration, weekStart } from "./habits.js";
+import { outcomeForm, reflectionForm } from "./habit-ui.js";
 import { signIn } from "./login.js";
-import { formatInTimeZone } from "date-fns-tz";
 import { supabase } from "./supabase.js";
 import { guestMode } from "./mode.js";
 import {
@@ -9,10 +10,9 @@ import {
   goalProgress,
   quickQuantityValues,
 } from "./tracking.js";
-import { completed, onDay } from "./lib.js";
 import { GUEST_ID } from "./guest.js";
 import { deleteLog, loadJourney, saveRow } from "./data.js";
-import { localDay, moveDay, occurrence, validateFields } from "./lib.js";
+import { completed, onDay, localDay, moveDay, defaultValues, validateFields } from "./lib.js";
 import { activityForm, entryForm, itemForm } from "./forms.js";
 import { authView, renderView } from "./views.js";
 import { notify, sheet, valueOf } from "./ui.js";
@@ -135,21 +135,25 @@ async function mutate(table, row, id) {
         ? "activities"
         : table === "activity_items"
           ? "items"
-          : "logs";
+          : table === "weekly_reflections" ? "reflections" : "logs";
     data[key] = id
       ? data[key].map((r) => (r.id === id ? saved : r))
       : [...data[key], saved];
   }
+  if (["activities", "activity_items"].includes(table)) await refresh();
   render();
   if (table === "activity_logs") {
     const activity = data.activities.find((a) => a.id === saved.activity_id);
     const item = data.items.find((i) => i.id === saved.item_id);
-    const day = localDay(saved.occurred_at, data.settings.timezone);
+    const day = habitDay(saved, data.settings.timezone);
     const when =
       day === localDay(new Date(), data.settings.timezone) ? "today" : day;
-    const progress =
-      goalProgress(activity, item, data.logs, day, data.settings.timezone) ??
-      goalProgress(activity, null, data.logs, day, data.settings.timezone);
+    const cfg=dayConfiguration(data,activity,day);
+    const goalActivity={...activity,...cfg};
+    const goalItem=item?{...item,...cfg?.items?.find(i=>i.id===item.id)}:null;
+    const progress = cfg ?
+      goalProgress(goalActivity, goalItem, data.logs, day, data.settings.timezone) ??
+      goalProgress(goalActivity, null, data.logs, day, data.settings.timezone) : null;
     notify(
       `${item?.name ?? activity.name} saved for ${when}${progress ? ` - ${progress.text}` : ""}.`,
       id ? undefined : () => undoEntry(saved.id),
@@ -180,6 +184,10 @@ function confirm(title, run) {
   );
 }
 function openEntry(activity, edit, item) {
+  if ((edit?.habit_type ?? typeOf(activity)) !== "build") {
+    const existing=edit ?? (typeOf(activity)==="maintain" ? data.logs.find(l=>l.activity_id===activity.id&&habitDay(l,data.settings.timezone)===state.day) : undefined);
+    return outcomeForm(activity,state.day,data.settings.timezone,(row,id)=>mutate("activity_logs",row,id),existing);
+  }
   entryForm(
     activity,
     data.items.filter((i) => i.activity_id === activity.id),
@@ -190,6 +198,12 @@ function openEntry(activity, edit, item) {
     edit,
     item,
   );
+}
+function addEntry(activity, values, itemId = null) {
+  return mutate("activity_logs", {
+    id: crypto.randomUUID(), activity_id: activity.id, item_id: itemId,
+    values, occurred_at: automaticOccurrence(state.day, data.settings.timezone),
+  });
 }
 const pending = new Set();
 root.addEventListener("click", async (e) => {
@@ -207,7 +221,7 @@ root.addEventListener("click", async (e) => {
   pending.add(key);
   target.disabled = true;
   const originalLabel = target.textContent;
-  if (["mark-done", "water", "undo-log", "increment-item"].includes(action))
+  if (["mark-done", "water", "undo-log", "increment-item", "habit-outcome"].includes(action))
     target.textContent = action === "undo-log" ? "Undoing..." : "Saving...";
   try {
     if (action === "auth-mode") {
@@ -233,6 +247,11 @@ root.addEventListener("click", async (e) => {
       root.querySelector('input[name="query"]')?.focus();
       return;
     }
+    if (action === "reflection") {
+      const day=state.reportEnd??state.day;
+      reflectionForm((row,id)=>mutate("weekly_reflections",row,id),day,data.reflections?.find(r=>r.week_start===weekStart(day)));
+      return;
+    }
     const activity = data.activities.find((a) => a.id === id);
     const item = data.items.find((i) => i.id === id);
     const log = data.logs.find((l) => l.id === id);
@@ -244,21 +263,27 @@ root.addEventListener("click", async (e) => {
       await undoEntry(id);
       return;
     }
-    if (action === "mark-done") {
-      if (completed(onDay(data.logs, state.day, data.settings.timezone), id))
+    if (action === "habit-outcome") {
+      const existing=typeOf(activity)==="maintain" ? data.logs.find(l=>l.activity_id===id&&habitDay(l,data.settings.timezone)===state.day) : undefined;
+      const values=existing?.values ?? defaultValues(activity.fields);
+      if(Object.keys(validateFields(existing?.field_snapshot??activity.fields,values)).length) {openEntry(activity,existing);return;}
+      await mutate("activity_logs",{
+        ...(existing?{}:{id:crypto.randomUUID(),activity_id:id,item_id:null}),
+        values,outcome:target.dataset.outcome,
+        occurred_at:existing?.occurred_at??automaticOccurrence(state.day,data.settings.timezone),
+      },existing?.id);
+      return;
+    }
+    if (action === "mark-done" || action === "water") {
+      if (action === "mark-done" && completed(onDay(data.logs, state.day, data.settings.timezone), id))
         return;
-      const values = quickDoneValues(activity);
+      const values = action === "mark-done" ? quickDoneValues(activity)
+        : activity.item_based ? null : quickQuantityValues(activity, 1);
       if (!values) {
         openEntry(activity);
         return;
       }
-      await mutate("activity_logs", {
-        id: crypto.randomUUID(),
-        activity_id: id,
-        item_id: null,
-        values,
-        occurred_at: automaticOccurrence(state.day, data.settings.timezone),
-      });
+      await addEntry(activity, values);
       return;
     }
     if (
@@ -280,13 +305,7 @@ root.addEventListener("click", async (e) => {
       const values = quickQuantityValues(parent, Number(target.dataset.amount ?? 1));
       if (!item || item.archived || !values)
         throw new Error("Quick add requires valid defaults for all required fields. Update the activity configuration.");
-      await mutate("activity_logs", {
-        id: crypto.randomUUID(),
-        activity_id: parent.id,
-        item_id: item.id,
-        values,
-        occurred_at: automaticOccurrence(state.day, data.settings.timezone),
-      });
+      await addEntry(parent, values, item.id);
       return;
     }
     if (action === "entry-item")
@@ -323,33 +342,6 @@ root.addEventListener("click", async (e) => {
         render();
         notify("Entry deleted.");
       });
-    if (action === "water") {
-      const values = Object.fromEntries(
-        activity.fields
-          .filter((f) => f.default_value !== null)
-          .map((f) => [f.id, f.default_value]),
-      );
-      if (activity.quantity_field_id) values[activity.quantity_field_id] = 1;
-      if (
-        activity.item_based ||
-        !activity.quantity_field_id ||
-        Object.keys(validateFields(activity.fields, values)).length
-      ) {
-        openEntry(activity);
-        return;
-      }
-      await mutate("activity_logs", {
-        id: crypto.randomUUID(),
-        activity_id: id,
-        item_id: null,
-        values,
-        occurred_at: occurrence(
-          state.day,
-          formatInTimeZone(new Date(), data.settings.timezone, "HH:mm"),
-          data.settings.timezone,
-        ),
-      });
-    }
   } catch (e) {
     showError(
       new Error(`Could not save the change. Please retry. ${e.message ?? e}`),

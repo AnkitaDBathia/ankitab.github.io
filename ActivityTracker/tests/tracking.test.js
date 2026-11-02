@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { Window } from "happy-dom";
-import { activityForm, entryForm } from "../src/forms.js";
+import { buildActivityForm as activityForm, entryForm } from "../src/forms.js";
 import {
   simpleFields,
   quickDoneValues,

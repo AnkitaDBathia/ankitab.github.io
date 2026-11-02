@@ -10,8 +10,39 @@ A private daily activity journal made with plain HTML, CSS, and JavaScript. GitH
 - Daily history, editing and confirmed deletion, per-item totals, weekly and rolling 30-day reports.
 - Native HTML dialogs, responsive desktop/mobile layout, light/dark themes, and explicit timezone calculations.
 - PostgreSQL migration, ownership constraints, RLS, and automated regression tests.
+- Build, Maintain and Replace habits on the same dashboard, with weekday schedules and optional dashboard visibility.
+- Recorded-day boundary consistency, replacement opportunities, calendar-month summaries, and optional weekly reflections.
 
 The database schema is unchanged by the frontend conversion. Do not rerun the initial migration if you already applied it successfully. No live Supabase setup or deployment has been performed by this change. The project URL and publishable key are configured in `ActivityTracker/config.js`.
+
+## Unified habits update
+
+Before deploying this update, run **`ActivityTracker/supabase/migrations/202611020001_unified_habits.sql` once** in Supabase SQL Editor. Apply any earlier migrations you have not already run, in filename order. Do not rerun previously applied migrations. This adds columns and two tables; it does not replace existing activities, logs, accounts or IDs. Existing activities become Build habits, with no duplicate defaults. The username-login Edge Function does not change.
+
+After the migration, commit and push the website changes. Wait for the Pages deployment to succeed, then open **https://ankitadbathia.github.io/ankitab.github.io/ActivityTracker/index.html**. The app's asset version is `20261102-habits`; the website URL stays the same.
+
+Create or configure an activity and choose:
+
+- **Build:** existing completion, quantity, duration, book and mantra tracking. Open **Tracking options and goals** for the existing simple/advanced field editor. Amounts above the goal remain recorded; Insights counts goal achievement at most once per applicable day.
+- **Maintain:** describe a boundary. Tap Achieved, Not achieved or Not applicable. Changing the outcome corrects that day's entry. Add details for an optional note; Undo removes the record. One result per local date is enforced by the database.
+- **Replace:** describe a trigger and healthier response. Tap an outcome only when a real opportunity occurs. Multiple opportunities per day are allowed. Add details for an optional note or measurement (for example, minutes). There is no required daily check-in.
+
+**More options** contains icon, category, weekdays and dashboard visibility. Hidden habits remain available under Activities; Archive preserves history. A habit with saved entries cannot change its type; archive it and create another instead.
+
+Insights offers the last 7 days, last 30 days, or a calendar month through the selected date. Actual measurements are shown separately from achievement. Different recorded measurement definitions/units are kept separate. There is no combined score.
+
+Reporting rules:
+
+- Build achievement uses the day's recorded goal and requires all configured daily item goals. Repeated logs or excess quantity never create extra goal-achieved days. Unscheduled days do not contribute to consistency; their actual entries remain visible.
+- Maintain consistency is achieved / applicable recorded outcomes. Not applicable and unscheduled days are excluded; unrecorded scheduled days are listed separately, never counted as failures.
+- Replace reports actual recorded opportunities. A percentage is shown only when both successes and incomplete opportunities, or incomplete opportunities alone, have been recorded. Success-only logging shows counts, not a presumed 100% success rate. Missing opportunities cannot be inferred.
+- Future days are not counted as missing. Archived periods do not accrue missing days.
+- Settings history starts on migration day. Old logs are retained, but earlier goals and schedules cannot be reconstructed and are marked unknown rather than scored. Legacy measurement units that were never stored are labelled unknown.
+- The first new entry on a local day freezes that day's criteria. Subsequent configuration changes apply to unrecorded days, while saved entries retain their criteria. New entries also store their local date, timezone, original field definitions and measurement unit; later timezone or configuration changes do not shift those entries. Legacy entries without stored timezone continue using the account timezone. Correcting an entry's date uses the dated configuration for its new day.
+
+The optional **Reflect on this week** action is in Insights. It opens three short questions for the Monday-based week containing the selected ending date. Reopening that week edits its existing reflection. Reflections and configuration history use owner-only RLS; clients cannot forge configuration history.
+
+Verification uses the existing Node test runner, happy-dom form tests, and real PostgreSQL migrations in PGlite. Run `npm.cmd run lint`, `npm.cmd test`, and `npm.cmd run stage` from `ActivityTracker`. Staging copies static assets only; there is no build compiler or separate type-check command. Live Supabase migration and authenticated cross-device checks must be performed against your project after deployment.
 
 ## Database storage and cross-device access
 
@@ -86,7 +117,7 @@ The `.github/workflows/deploy.yml` workflow tests the code and copies browser-re
 
 The workflow uses repository variables when provided, otherwise it copies the committed public `config.js`. `.env.local`, tests, migrations, and `node_modules` are not uploaded by the workflow. Keep private secrets out of any browser configuration.
 
-All asset URLs are relative. The same website works at `/` or under a GitHub project repository path without a base-path setting. Hash navigation (for example `/#history`) supports refreshing screens without server rewrites. This repository deploys the app at `https://ankitadbathia.github.io/ankitab.github.io/` rather than `/ActivityTracker/`.
+All asset URLs are relative. Hash navigation supports refreshing screens without server rewrites. This repository deploys the app at `https://ankitadbathia.github.io/ankitab.github.io/ActivityTracker/index.html`; the repository root redirects there.
 
 To prepare the static files yourself:
 

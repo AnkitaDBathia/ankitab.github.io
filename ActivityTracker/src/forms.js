@@ -1,3 +1,4 @@
+import { habitConfig } from "./habit-ui.js";
 import { moods, supportsMood, attachDictation } from "./journal.js";
 import { formatInTimeZone } from "date-fns-tz";
 import {
@@ -7,6 +8,7 @@ import {
 } from "./tracking.js";
 import {
   occurrence,
+  defaultValues,
   onDay,
   total,
   validateActivity,
@@ -39,15 +41,10 @@ export function entryForm(
   edit,
   initialItem,
 ) {
+  timezone = edit?.habit_timezone ?? timezone;
   const moodEnabled = supportsMood(activity) || !!edit?.mood || !!edit?.mood_note;
   const fields = edit?.field_snapshot ?? activity.fields;
-  const values =
-    edit?.values ??
-    Object.fromEntries(
-      fields
-        .filter((f) => f.default_value !== null)
-        .map((f) => [f.id, f.default_value]),
-    );
+  const values = edit?.values ?? defaultValues(fields);
   const date = edit
     ? formatInTimeZone(edit.occurred_at, timezone, "yyyy-MM-dd")
     : day;
@@ -159,7 +156,8 @@ const blankField = () => ({
   min: null,
   max: null,
 });
-export function activityForm(save, activity) {
+export function activityForm(save, activity) { return habitConfig(save, activity, buildActivityForm); }
+export function buildActivityForm(save, activity) {
   const originalMode =
     !activity || completionOnly(activity)
       ? "done"

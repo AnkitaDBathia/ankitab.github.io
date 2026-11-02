@@ -1,5 +1,4 @@
-import { validateFields } from "./lib.js";
-import { localDay, occurrence, onDay, total, completed } from "./lib.js";
+import { defaultValues, validateFields, localDay, occurrence, onDay, total, completed } from "./lib.js";
 import { formatInTimeZone } from "date-fns-tz";
 
 export function automaticOccurrence(day, timezone, now = new Date()) {
@@ -24,12 +23,14 @@ export function goalProgress(activity, item, logs, day, timezone) {
   const goal = Number(item ? item.goal : activity.daily_goal);
   if (!Number.isFinite(goal) || goal <= 0) return null;
   const daily = !item || item.goal_period === "daily";
-  const relevant = daily ? onDay(logs, day, timezone) : logs;
+  const relevant = (daily ? onDay(logs, day, timezone) : logs).filter(l=>
+    !activity.quantity_field_id || (l.quantity_field_id===activity.quantity_field_id && (l.measurement_unit==null || l.measurement_unit===activity.unit)));
   const value = activity.quantity_field_id
     ? total(relevant, activity.id, item?.id)
     : relevant.filter(
         (l) =>
-          l.activity_id === activity.id && (!item || l.item_id === item.id),
+          l.activity_id === activity.id && (!item || l.item_id === item.id) &&
+          (!activity.fields?.some(f=>f.type==='boolean') || completed([l],activity.id)),
       ).length;
   const remaining = Math.max(0, Math.round((goal - value) * 1e8) / 1e8);
   const unit = activity.quantity_field_id ? activity.unit : "entries";
@@ -69,22 +70,16 @@ export function quickAmounts(goal, remaining = goal) {
 export function quickQuantityValues(activity, amount = 1) {
   if (!Number.isFinite(amount) || amount <= 0) return null;
   if (!activity || activity.archived || !activity.quantity_field_id) return null;
-  const values = Object.fromEntries(activity.fields
-    .filter(f => f.default_value != null)
-    .map(f => [f.id, f.default_value]));
+  const values = defaultValues(activity.fields);
   values[activity.quantity_field_id] = amount;
   return Object.keys(validateFields(activity.fields, values)).length ? null : values;
 }
 // Only offer a one-tap action when all required information can be supplied.
 export function quickDoneValues(activity) {
-  if (activity.item_based || activity.archived) return null;
+  if ((activity.habit_type ?? "build") !== "build" || activity.item_based || activity.archived) return null;
   const booleans = activity.fields.filter((f) => f.type === "boolean");
   if (booleans.length !== 1) return null;
-  const values = Object.fromEntries(
-    activity.fields
-      .filter((f) => f.default_value !== null)
-      .map((f) => [f.id, f.default_value]),
-  );
+  const values = defaultValues(activity.fields);
   values[booleans[0].id] = true;
   return Object.keys(validateFields(activity.fields, values)).length
     ? null

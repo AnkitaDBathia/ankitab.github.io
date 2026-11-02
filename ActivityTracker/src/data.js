@@ -6,6 +6,15 @@ const db = () => {
   if (!supabase) throw new Error("Supabase is not configured.");
   return supabase;
 };
+async function readRows(query) {
+  const rows = [];
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await query.range(start, start + 999);
+    if (error) throw error;
+    rows.push(...data);
+    if (data.length < 1000) return rows;
+  }
+}
 export async function loadJourney() {
   if (guestMode) return guest().load();
   const init = await db().rpc("initialize_journey");
@@ -16,19 +25,13 @@ export async function loadJourney() {
     db().from("user_settings").select("*").single(),
   ]);
   for (const result of results) if (result.error) throw result.error;
-  const logs = [];
-  for (let start = 0; ; start += 1000) {
-    const { data, error } = await db()
-      .from("activity_logs")
-      .select("*")
-      .order("occurred_at", { ascending: false })
-      .order("id")
-      .range(start, start + 999);
-    if (error) throw error;
-    logs.push(...data);
-    if (data.length < 1000) break;
-  }
+  const [logs, revisions, reflections] = await Promise.all([
+    readRows(db().from("activity_logs").select("*").order("occurred_at", { ascending: false }).order("id")),
+    readRows(db().from("habit_revisions").select("*").order("id")),
+    readRows(db().from("weekly_reflections").select("*").order("week_start").order("id")),
+  ]);
   return {
+    revisions, reflections,
     activities: results[0].data,
     items: results[1].data,
     settings: results[2].data,

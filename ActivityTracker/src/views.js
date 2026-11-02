@@ -1,3 +1,5 @@
+import { typeOf, outcomeLabel, habitDay, configurationAt, dayConfiguration, measurementTotals, scheduled } from "./habits.js";
+import { boundaryCard, consistencyView } from "./habit-ui.js";
 import { supportsMood, favouritesFirst, searchLogs } from "./journal.js";
 import {
   completionOnly,
@@ -16,6 +18,7 @@ const cardIcon = (a) =>
   `<span class="activity-icon ${h(a.icon)}">${icon(a.icon)}</span>`;
 
 export function activityAction(activity, daily, cls = "primary") {
+  if(typeOf(activity)!=="build") return button("Record outcome", "entry", activity.id, cls);
   if (quickDoneValues(activity)) {
     const done = completed(daily, activity.id);
     const latest = latestCompletion(daily, activity.id);
@@ -35,6 +38,17 @@ function favouriteButton(item) {
   return `<button type="button" class="text-button" data-action="favourite-item" data-id="${h(item.id)}" aria-pressed="${!!item.favourite}" aria-label="${item.favourite ? "Unpin" : "Pin"} ${h(item.name)}">${item.favourite ? "&#9733;" : "&#9734;"}</button>`;
 }
 export function targetSummary(activity, item, data, day, showLog = false) {
+  const canLog=!activity.archived && !item?.archived;
+  if(Array.isArray(data.revisions)) {
+    const cfg=dayConfiguration(data,activity,day);
+    if(!cfg) return item||activity.daily_goal?'<small class="muted">Historical target unavailable</small>':'';
+    activity={...activity,...cfg,archived:activity.archived};
+    if(item) {
+      const previous=cfg.items?.find(i=>i.id===item.id);
+      if(!previous) return '';
+      item={...item,...previous,archived:!canLog};
+    }
+  }
   const progress = goalProgress(
     activity,
     item,
@@ -63,7 +77,7 @@ export function logList(logs, data) {
           const a = data.activities.find((a) => a.id === log.activity_id);
           const item = data.items.find((i) => i.id === log.item_id);
           return `<article class="log-row">${cardIcon(a)}<div class="grow"><strong>${h(item?.name ?? a.name)}</strong><p>${h(
-            log.field_snapshot
+            [...(log.field_snapshot ?? [])]
               .filter(
                 (f) =>
                   log.values[f.id] !== undefined && log.values[f.id] !== "",
@@ -73,7 +87,7 @@ export function logList(logs, data) {
                   `${f.label}: ${typeof log.values[f.id] === "boolean" ? (log.values[f.id] ? "Yes" : "No") : log.values[f.id]}`,
               )
               .join(" · "),
-          )}</p>${log.mood || log.mood_note ? `<p>${h([log.mood,log.mood_note].filter(Boolean).join(" - "))}</p>` : ""}<small>${h(formatInTimeZone(log.occurred_at, data.settings.timezone, "MMM d, yyyy · HH:mm"))} · ${h(a.name)}</small></div><button class="icon-button" data-action="edit-log" data-id="${h(log.id)}" aria-label="Edit ${h(a.name)} entry">✎</button><button class="icon-button danger" data-action="delete-log" data-id="${h(log.id)}" aria-label="Delete ${h(a.name)} entry">×</button></article>`;
+          )}</p>${log.outcome ? `<p><strong>${h(outcomeLabel(log.outcome))}</strong>${log.habit_note ? ` - ${h(log.habit_note)}` : ""}</p>` : ""}${log.mood || log.mood_note ? `<p>${h([log.mood,log.mood_note].filter(Boolean).join(" - "))}</p>` : ""}<small>${h(formatInTimeZone(log.occurred_at, log.habit_timezone ?? data.settings.timezone, "MMM d, yyyy · HH:mm"))} · ${h(a.name)}</small></div><button class="icon-button" data-action="edit-log" data-id="${h(log.id)}" aria-label="Edit ${h(a.name)} entry">✎</button><button class="icon-button danger" data-action="delete-log" data-id="${h(log.id)}" aria-label="Delete ${h(a.name)} entry">×</button></article>`;
         })
         .join("")}</div>`
     : empty;
@@ -81,9 +95,9 @@ export function logList(logs, data) {
 export function renderView(data, state, email, guestMode = defaultGuestMode) {
   const { page, day, filter, itemFilter, showArchived } = state;
   const today = localDay(new Date(), data.settings.timezone);
-  const daily = onDay(data.logs, day, data.settings.timezone);
+  const daily = data.logs.filter(l=>habitDay(l,data.settings.timezone)===day);
   const active = data.activities
-    .filter((a) => !a.archived)
+    .filter((a) => !a.archived && a.show_on_dashboard !== false)
     .sort((a, b) => a.position - b.position);
   const detail = page.startsWith("activity/")
     ? data.activities.find((a) => a.id === page.slice(9))
@@ -105,7 +119,7 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
   ];
   let content = "";
   if (page === "dashboard")
-    content = `<section class="day-summary" aria-label="Daily summary"><strong>${active.filter((a) => daily.some((l) => l.activity_id === a.id)).length} / ${active.length} activities recorded</strong><span>${daily.length} entries on this day</span></section><div class="section-heading"><h2>Your daily rituals</h2><a href="#activities">All activities ↗</a></div><section class="cards">${[...active].sort((a,b) => Number(data.items.some(i => i.activity_id === a.id && !i.archived && i.goal)) - Number(data.items.some(i => i.activity_id === b.id && !i.archived && i.goal))).map((a) => `<article class="activity-card ${data.items.some(i => i.activity_id === a.id && !i.archived && i.goal) ? "has-item-targets" : ""} tone-${h(a.icon)}"><div class="activity-card-heading">${cardIcon(a)}<a class="grow" href="#activity/${h(a.id)}"><h3>${h(a.name)}</h3></a><a class="icon-button" href="#activity/${h(a.id)}" aria-label="View ${h(a.name)}">&#8599;</a></div><div class="metric">${quickDoneValues(a) ? (completed(daily, a.id) ? "Done" : "Not yet") : a.quantity_field_id ? total(daily, a.id).toLocaleString() : daily.filter((l) => l.activity_id === a.id).length}<span>${quickDoneValues(a) ? "" : h(a.quantity_field_id ? a.unit : "entries")}</span></div><p>${completed(daily, a.id) ? "✓ Practice completed" : h(a.description)}</p><div class="card-targets">${cardTargets(a, data, day)}</div>${activityAction(a, daily, "card-action")}</article>`).join("")}<button class="add-card" data-action="create-activity"><span>＋</span><strong>A new little ritual</strong><small>Create your own activity</small></button></section><div class="section-heading"><h2>Today’s moments</h2><a href="#history">View history ↗</a></div><section class="panel">${logList(daily.slice(0, 5), data)}</section>`;
+    content = `<section class="day-summary" aria-label="Daily summary"><strong>${active.filter((a) => daily.some((l) => l.activity_id === a.id)).length} / ${active.length} activities recorded</strong><span>${daily.length} entries on this day</span></section><div class="section-heading"><h2>Build - positive habits</h2><a href="#activities">All activities ↗</a></div><section class="cards">${[...active.filter(a=>typeOf(a)==="build")].sort((a,b) => Number(data.items.some(i => i.activity_id === a.id && !i.archived && i.goal)) - Number(data.items.some(i => i.activity_id === b.id && !i.archived && i.goal))).map((a) => `<article class="activity-card ${data.items.some(i => i.activity_id === a.id && !i.archived && i.goal) ? "has-item-targets" : ""} tone-${h(a.icon)}"><div class="activity-card-heading">${cardIcon(a)}<a class="grow" href="#activity/${h(a.id)}"><h3>${h(a.name)}</h3></a><a class="icon-button" href="#activity/${h(a.id)}" aria-label="View ${h(a.name)}">&#8599;</a></div><div class="metric">${quickDoneValues(a) ? (completed(daily, a.id) ? "Done" : "Not yet") : a.quantity_field_id ? total(daily, a.id).toLocaleString() : daily.filter((l) => l.activity_id === a.id).length}<span>${quickDoneValues(a) ? "" : h(a.quantity_field_id ? a.unit : "entries")}</span></div><p>${completed(daily, a.id) ? "✓ Practice completed" : h(a.description)}</p>${!scheduled(configurationAt(data,a,day)??a,day)?'<small class="muted">Not scheduled today</small>':""}<div class="card-targets">${cardTargets(a, data, day)}</div>${activityAction(a, daily, "card-action")}</article>`).join("")}<button class="add-card" data-action="create-activity"><span>＋</span><strong>A new little ritual</strong><small>Create your own activity</small></button></section>${['maintain','replace'].map(type=>`<div class="section-heading"><h2>${type==='maintain'?'Maintain - healthy boundaries':'Replace - healthier choices'}</h2>${button('+ Create habit','create-activity')}</div><section class="cards">${active.filter(a=>typeOf(a)===type).map(a=>boundaryCard(a,data,day)).join('')||`<p class="muted">${type==='maintain'?'Set a clear boundary you want to keep.':'Choose a healthier response when an opportunity occurs.'}</p>`}</section>`).join('')}<div class="section-heading"><h2>Today’s moments</h2><a href="#history">View history ↗</a></div><section class="panel">${logList(daily.slice(0, 5), data)}</section>`;
   if (page === "activities")
     content = `<div class="section-heading"><label class="check"><input type="checkbox" data-change="archived" ${showArchived ? "checked" : ""}> Show archived</label>${button("＋ Create activity", "create-activity", "", "primary")}</div><section class="panel">${data.activities
       .filter((a) => showArchived || !a.archived)
@@ -118,6 +132,7 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
   if (detail) {
     const a = detail;
     content = `<div class="detail-summary"><div class="panel stat"><small>SELECTED DAY</small><strong>${quickDoneValues(a) ? (completed(daily, a.id) ? "Done" : "Not yet") : a.quantity_field_id ? total(daily, a.id) : daily.filter((l) => l.activity_id === a.id).length} <span>${quickDoneValues(a) ? "" : h(a.quantity_field_id ? a.unit : "entries")}</span></strong>${completed(daily, a.id) ? "✓ Completed" : ""}</div><div class="panel stat"><small>ALL TIME</small><strong>${a.quantity_field_id ? total(data.logs, a.id) : data.logs.filter((l) => l.activity_id === a.id).length} <span>${h(a.quantity_field_id ? a.unit : "entries")}</span></strong></div></div>${targetSummary(a, null, data, day)}<div class="section-heading">${button("Configure activity", "configure", a.id)}${a.archived ? "<span>Archived</span>" : activityAction(a, daily, "primary")}</div>`;
+    if(typeOf(a)!=="build") content = `${boundaryCard(a,data,day)}${button("Configure habit","configure",a.id)}`;
     if (a.item_based)
       content += `<div class="section-heading"><h2>${a.seed_key === "reading" ? "Your bookshelf" : a.seed_key === "mantra" ? "Your mantras" : "Your items"}</h2>${button("＋ Add item", "add-item", a.id)}</div><section class="panel">${
         favouritesFirst(data.items)
@@ -143,7 +158,7 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
     )}</section>`;
   if (page === "reports") content = reports(data, state);
   if (page === "settings")
-    content = `<div class="settings-grid"><section class="panel padded"><h2>Your preferences</h2><p class="muted">${guestMode ? "Temporary guest journal ? stored only in this browser" : `Signed in as ${h(email)}`}</p><form data-form="settings">${input("Your name", "display_name", data.settings.display_name, "text", 'required maxlength="100"')}${input("Timezone (IANA name)", "timezone", data.settings.timezone, "text", 'required list="timezones"')}<datalist id="timezones">${["Asia/Kolkata", "UTC", "Europe/London", "America/New_York", "Asia/Singapore"].map((z) => `<option>${z}</option>`).join("")}</datalist>${select(
+    content = `<div class="settings-grid"><section class="panel padded"><h2>Your preferences</h2><p class="muted">${guestMode ? "Temporary guest journal - stored only in this browser" : `Signed in as ${h(email)}`}</p><form data-form="settings">${input("Your name", "display_name", data.settings.display_name, "text", 'required maxlength="100"')}${input("Timezone (IANA name)", "timezone", data.settings.timezone, "text", 'required list="timezones"')}<datalist id="timezones">${["Asia/Kolkata", "UTC", "Europe/London", "America/New_York", "Asia/Singapore"].map((z) => `<option>${z}</option>`).join("")}</datalist>${select(
       "Appearance",
       "appearance",
       [
@@ -160,30 +175,42 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
 }
 function reports(data, state) {
   const period = state.period ?? 7,
-    end = state.reportEnd ?? state.day,
+    end = [state.reportEnd ?? state.day,localDay(new Date(),data.settings.timezone)].sort()[0],
     id = state.reportActivity || data.activities[0]?.id;
   const a = data.activities.find((a) => a.id === id);
-  const days = Array.from({ length: period }, (_, i) =>
-    moveDay(end, i - period + 1),
+  const length=period===0?Number(end.slice(8)):period;
+  const days = Array.from({ length }, (_, i) =>
+    moveDay(end, i - length + 1),
   );
   const logs = data.logs.filter((l) =>
-    days.includes(localDay(l.occurred_at, data.settings.timezone)),
+    days.includes(habitDay(l, data.settings.timezone)),
   );
+  const measured=a?measurementTotals(logs,a):[];
+  const useQuantity=a?.quantity_field_id&&measured.length<=1;
+  const unit=typeOf(a)==='maintain'?'achieved boundaries':typeOf(a)==='replace'?'successful replacements':useQuantity?(measured[0]?.unit??a.unit):'recorded entries';
   const chart = days.map((date) => ({
     date,
-    value: a?.quantity_field_id
+    value: a && typeOf(a)!=="build" ? onDay(logs,date,data.settings.timezone).filter(l=>l.activity_id===id&&["achieved","replaced"].includes(l.outcome)).length : useQuantity
       ? total(onDay(logs, date, data.settings.timezone), id)
       : onDay(logs, date, data.settings.timezone).filter(
           (l) => l.activity_id === id,
         ).length,
   }));
   const maximum = Math.max(1, ...chart.map((p) => p.value));
+  function actual(rows,activity) {
+    const own=rows.filter(l=>l.activity_id===activity.id);
+    const amounts=measurementTotals(own,activity).map(m=>`${m.value} ${m.unit}`);
+    if(typeOf(activity)==='maintain') return `${own.filter(l=>l.outcome==='achieved').length} achieved; ${own.filter(l=>l.outcome==='not_achieved').length} not achieved; ${own.filter(l=>l.outcome==='not_applicable').length} not applicable`;
+    if(typeOf(activity)==='replace') amounts.unshift(`${own.filter(l=>l.outcome==='replaced').length} replacements; ${own.filter(l=>l.outcome==='not_replaced').length} incomplete; ${own.filter(l=>l.outcome==='not_applicable').length} not applicable`);
+    return amounts.join(' / ')||`${own.length} entries`;
+  }
   return `<div class="report-controls">${select(
     "Period",
     "period",
     [
-      [7, "Weekly · 7 days"],
-      [30, "Monthly · 30 days"],
+      [7, "Last 7 days"],
+      [30, "Last 30 days"],
+      [0, "Calendar month to selected date"],
     ],
     period,
     'data-change="period"',
@@ -193,7 +220,7 @@ function reports(data, state) {
     data.activities.map((a) => [a.id, a.name]),
     id,
     'data-change="report-activity"',
-  )}</div><section class="panel padded"><h2>${h(a?.name ?? "Activity")} over time</h2><p>${h(days[0])} – ${h(end)} · ${h(a?.quantity_field_id ? a.unit : "entries")}</p><div class="native-chart" role="img" aria-label="Daily totals; exact values in the table below">${chart.map((p) => `<div class="chart-column" title="${p.date}: ${p.value}"><span style="height:${Math.max(0, (p.value / maximum) * 100)}%"></span><small>${p.date.slice(8)}</small></div>`).join("")}</div><details><summary>View chart data</summary><table><thead><tr><th>Date</th><th>Total</th></tr></thead><tbody>${chart.map((p) => `<tr><td>${p.date}</td><td>${p.value}</td></tr>`).join("")}</tbody></table></details></section><div class="section-heading"><h2>Your progress, together</h2></div><section class="panel table-scroll"><table><thead><tr><th>Activity</th><th>This period</th><th>Active days</th><th>All time</th></tr></thead><tbody>${data.activities.map((a) => `<tr><td><a href="#activity/${a.id}">${h(a.name)}</a><small>${h(a.unit)}</small></td><td>${a.quantity_field_id ? total(logs, a.id) : logs.filter((l) => l.activity_id === a.id).length}</td><td>${new Set(logs.filter((l) => l.activity_id === a.id).map((l) => localDay(l.occurred_at, data.settings.timezone))).size} / ${period}</td><td>${a.quantity_field_id ? total(data.logs, a.id) : data.logs.filter((l) => l.activity_id === a.id).length}</td></tr>`).join("")}</tbody></table></section>`;
+  )}</div>${consistencyView(data,days)}<section class="panel padded"><h2>${h(a?.name ?? "Activity")} over time</h2><p>${h(days[0])} – ${h(end)} · ${h(unit)}</p><div class="native-chart" role="img" aria-label="Daily totals; exact values in the table below">${chart.map((p) => `<div class="chart-column" title="${p.date}: ${p.value}"><span style="height:${Math.max(0, (p.value / maximum) * 100)}%"></span><small>${p.date.slice(8)}</small></div>`).join("")}</div><details><summary>View chart data</summary><table><thead><tr><th>Date</th><th>${h(unit)}</th></tr></thead><tbody>${chart.map((p) => `<tr><td>${p.date}</td><td>${p.value}</td></tr>`).join("")}</tbody></table></details></section><div class="section-heading"><h2>Actual records</h2></div><section class="panel table-scroll"><table><thead><tr><th>Habit</th><th>This period</th><th>All time</th></tr></thead><tbody>${data.activities.map((a) => `<tr><td><a href="#activity/${h(a.id)}">${h(a.name)}</a></td><td>${h(actual(logs,a))}</td><td>${h(actual(data.logs,a))}</td></tr>`).join("")}</tbody></table></section><div class="section-heading"><h2>Optional weekly reflection</h2>${button("Reflect on this week","reflection")}</div>`;
 }
 export function authView(mode) {
   return `<main class="auth-page"><section class="auth-intro"><div class="brand">❧ My Journey</div><span class="eyebrow">SMALL STEPS. MEANINGFUL DAYS.</span><h1>A little progress,<br>every day.</h1><p>A quiet place for your everyday rituals.<br>Drink water. Turn a page. Find your balance.</p><div class="auth-art" aria-hidden="true">✧ ❧ ◌</div><small>Your journey is yours alone.</small></section><section class="auth-form"><span class="eyebrow">WELCOME TO YOUR SPACE</span><h2>${mode === "recovery" ? "Choose a new password" : mode === "reset" ? "A fresh start" : "Welcome back"}</h2><p class="muted">Make time for the things that matter to you.</p><form data-form="auth">${mode !== "recovery" ? input(mode === "reset" ? "Recovery email" : "Username or email", "email", "", mode === "reset" ? "email" : "text", mode === "reset" ? 'required autocomplete="email"' : 'required autocomplete="username" autocapitalize="none" spellcheck="false"') : ""}${mode !== "reset" ? input("Password", "password", "", "password", `required autocomplete="${mode === "recovery" ? "new-password" : "current-password"}" ${mode === "recovery" ? 'minlength="12"' : ""}`) : ""}<button class="primary wide">${mode === "recovery" ? "Update password" : mode === "reset" ? "Send recovery link" : "Sign in to My Journey"}</button><p role="status" data-auth-message></p></form>${mode !== "recovery" ? button(mode === "reset" ? "Back to sign in" : "Forgot your password?", "auth-mode", "", "text-button") : ""}<p class="small muted">Accounts are created by the administrator. Email is optional; without one, ask the administrator to reset a forgotten password.</p></section></main>`;

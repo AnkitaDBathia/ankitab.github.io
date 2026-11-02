@@ -7,6 +7,7 @@ import {
   after as afterAll,
 } from "node:test";
 import { expect } from "../tests/assertions.js";
+import assert from "node:assert/strict";
 let db;
 const alice = "11111111-1111-4111-8111-111111111111",
   bob = "22222222-2222-4222-8222-222222222222";
@@ -42,6 +43,9 @@ beforeAll(
     );
     await db.exec(readFileSync(new URL("../supabase/migrations/202610290002_favourites_mood.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("../supabase/migrations/202610300001_usernames.sql", import.meta.url), "utf8"));
+    await asUser(alice);
+    await db.exec("select initialize_journey(); insert into activity_logs(id,user_id,activity_id,values,occurred_at) select '33333333-3333-4333-8333-333333333333',user_id,id,'{\"quantity\":7}','2025-01-01T10:00:00Z' from activities where seed_key='water'; reset role;");
+    await db.exec(readFileSync(new URL("../supabase/migrations/202611020001_unified_habits.sql", import.meta.url), "utf8"));
     await asUser(alice);
     await db.exec("select public.initialize_journey();");
     water = (await db.query("select id from activities where seed_key='water'"))
@@ -264,5 +268,68 @@ describe("Real PostgreSQL migration, validation and RLS", () => {
     await expect(
       db.query("select public.initialize_journey()"),
     ).rejects.toThrow();
+  });
+  it('preserves legacy data and starts dated settings only at migration time',async()=>{
+    await asUser(alice);
+    const old=(await db.query("select * from activity_logs where id='33333333-3333-4333-8333-333333333333'")).rows[0];
+    assert.equal(old.values.quantity,7);assert.equal(old.habit_type,'build');assert.equal(old.habit_snapshot,null);assert.equal(old.habit_day,null);
+    assert.equal((await db.query("select count(*)::int as n from habit_revisions where effective_day<'2025-01-02'")).rows[0].n,0);
+  });
+  it('enforces one boundary per local day and freezes its settings during corrections',async()=>{
+    await asUser(alice);
+    const a=(await db.query("insert into activities(user_id,name,habit_type,boundary) values($1,'Bedtime','maintain','Phone away') returning id",[alice])).rows[0];
+    const entry=(await db.query("insert into activity_logs(user_id,activity_id,values,outcome) values($1,$2,'{}','achieved') returning *",[alice,a.id])).rows[0];
+    assert.equal(entry.habit_timezone,'Asia/Kolkata');assert.equal(entry.habit_snapshot.boundary,'Phone away');
+    await assert.rejects(db.query("insert into activity_logs(user_id,activity_id,values,outcome,occurred_at) values($1,$2,'{}','not_achieved',$3)",[alice,a.id,entry.occurred_at]));
+    await db.query("update activities set boundary='New rule',applicable_days=array[1,2,3] where id=$1",[a.id]);
+    const corrected=(await db.query("update activity_logs set outcome='not_achieved',habit_timezone='UTC',habit_snapshot='{}' where id=$1 returning *",[entry.id])).rows[0];
+    assert.equal(corrected.habit_snapshot.boundary,'Phone away');assert.equal(corrected.habit_timezone,'Asia/Kolkata');assert.equal(corrected.outcome,'not_achieved');
+    await assert.rejects(db.query("update activities set habit_type='build' where id=$1",[a.id]));
+    await assert.rejects(db.query("update activity_logs set outcome='replaced' where id=$1",[entry.id]));
+    // UTC dates differ, but these instants are the same Kolkata day.
+    await db.query("insert into activity_logs(user_id,activity_id,values,outcome,occurred_at) values($1,$2,'{}','achieved','2025-03-03T19:00:00Z')",[alice,a.id]);
+    await assert.rejects(db.query("insert into activity_logs(user_id,activity_id,values,outcome,occurred_at) values($1,$2,'{}','achieved','2025-03-04T01:00:00Z')",[alice,a.id]));
+    await db.query("insert into activity_logs(user_id,activity_id,values,outcome,occurred_at) values($1,$2,'{}','not_applicable','2025-03-04T19:00:00Z')",[alice,a.id]);
+  });
+  it('accepts multiple real replacement opportunities and validates optional measurements',async()=>{
+    await asUser(alice);
+    const fields=[{id:'minutes',label:'Minutes',type:'duration',required:false,default_value:null,position:0,options:[],min:0,max:null}];
+    const a=(await db.query("insert into activities(user_id,name,habit_type,unwanted_behavior,replacement,fields,quantity_field_id,unit) values($1,'Breathe','replace','Checking phone','Breathe',$2,'minutes','minutes') returning id",[alice,fields])).rows[0];
+    for(const outcome of ['replaced','not_replaced','not_applicable']) await db.query("insert into activity_logs(user_id,activity_id,values,outcome) values($1,$2,'{}',$3)",[alice,a.id,outcome]);
+    await assert.rejects(db.query("insert into activity_logs(user_id,activity_id,values,outcome) values($1,$2,'{\"minutes\":-1}','replaced')",[alice,a.id]));
+    const entry=(await db.query("insert into activity_logs(user_id,activity_id,values,outcome) values($1,$2,'{\"minutes\":15}','replaced') returning *",[alice,a.id])).rows[0];
+    await db.query("update activities set unit='seconds' where id=$1",[a.id]);
+    const edited=(await db.query("update activity_logs set values='{\"minutes\":20}',measurement_unit='seconds' where id=$1 returning *",[entry.id])).rows[0];
+    assert.equal(edited.measurement_unit,'minutes');assert.equal(edited.values.minutes,20);
+    await assert.rejects(db.query("update activities set daily_goal=5 where id=$1",[a.id]));
+  });
+  it('isolates reflections and revisions and disallows client-written history',async()=>{
+    await asUser(alice);
+    const r=(await db.query("insert into weekly_reflections(user_id,week_start,went_well) values($1,'2026-10-26','Small steps') returning id",[alice])).rows[0];
+    await assert.rejects(db.query("insert into weekly_reflections(user_id,week_start) values($1,'2026-10-26')",[alice]));
+    await assert.rejects(db.query("insert into weekly_reflections(user_id,week_start) values($1,'2026-10-27')",[alice]));
+    await assert.rejects(db.query("update habit_revisions set snapshot='{}' where activity_id=$1",[water]));
+    await assert.rejects(db.query("insert into habit_revisions(user_id,activity_id,effective_day,snapshot) values($1,$2,current_date,'{}')",[alice,water]));
+    await asUser(bob);
+    assert.equal((await db.query("select * from habit_revisions where activity_id=$1",[water])).rows.length,0);
+    assert.equal((await db.query("select * from weekly_reflections where id=$1",[r.id])).rows.length,0);
+    assert.equal((await db.query("update weekly_reflections set went_well='hacked' where id=$1 returning id",[r.id])).rows.length,0);
+    await assert.rejects(db.query("insert into weekly_reflections(user_id,week_start) values($1,'2026-11-02')",[alice]));
+    await asUser(alice);
+    await db.query("update weekly_reflections set next_step='Read a page' where id=$1",[r.id]);
+    await db.query("delete from weekly_reflections where id=$1",[r.id]);
+  });
+  it('retains actual Build amounts and the first recorded daily goal after configuration changes',async()=>{
+    await asUser(alice);
+    const fields=[{id:'pages',label:'Pages',type:'number',required:true,default_value:1,position:0,options:[],min:0,max:null}];
+    const a=(await db.query("insert into activities(user_id,name,fields,quantity_field_id,unit,daily_goal) values($1,'Read more',$2,'pages','pages',10) returning id",[alice,fields])).rows[0];
+    const first=(await db.query("insert into activity_logs(user_id,activity_id,values) values($1,$2,'{\"pages\":30}') returning *",[alice,a.id])).rows[0];
+    await db.query("update activities set daily_goal=50 where id=$1",[a.id]);
+    const next=(await db.query("insert into activity_logs(user_id,activity_id,values) values($1,$2,'{\"pages\":5}') returning *",[alice,a.id])).rows[0];
+    assert.equal(first.values.pages,30);assert.equal(next.habit_snapshot.daily_goal,10);
+    const revision=(await db.query("select snapshot from habit_revisions where activity_id=$1 order by effective_day desc limit 1",[a.id])).rows[0];
+    assert.equal(revision.snapshot.daily_goal,50);
+    const backdated=(await db.query("insert into activity_logs(user_id,activity_id,values,occurred_at) values($1,$2,'{\"pages\":3}','2020-01-01T12:00:00Z') returning *",[alice,a.id])).rows[0];
+    assert.equal(backdated.habit_snapshot,null);assert.equal(backdated.values.pages,3);
   });
 });

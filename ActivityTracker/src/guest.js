@@ -1,3 +1,5 @@
+import { typeOf, configurationSnapshot, dayConfiguration, outcomes, habitDay } from "./habits.js";
+import { localDay } from "./lib.js";
 import { moods } from "./journal.js";
 import { validateActivity, validateFields } from "./lib.js";
 export const GUEST_ID = "local-guest";
@@ -82,6 +84,16 @@ function initialJournal() {
   };
 }
 export function createGuestStore(storage) {
+  function initialiseMetadata(data) {
+    data.reflections ??= [];
+    data.revisions ??= data.activities.map(a=>({id:crypto.randomUUID(),activity_id:a.id,user_id:GUEST_ID,effective_day:localDay(new Date(),data.settings.timezone),snapshot:configurationSnapshot(a,data.items)}));
+  }
+  function recordRevision(data,a) {
+    const day=localDay(new Date(),data.settings.timezone);
+    const old=data.revisions.find(r=>r.activity_id===a.id&&r.effective_day===day);
+    const row={id:old?.id??crypto.randomUUID(),user_id:GUEST_ID,activity_id:a.id,effective_day:day,snapshot:configurationSnapshot(a,data.items)};
+    data.revisions=old?data.revisions.map(r=>r.id===old.id?row:r):[...data.revisions,row];
+  }
   function write(data) {
     storage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
@@ -89,6 +101,7 @@ export function createGuestStore(storage) {
     const raw = storage.getItem(STORAGE_KEY);
     if (!raw) {
       const data = initialJournal();
+      initialiseMetadata(data);
       write(data);
       return data;
     }
@@ -103,6 +116,7 @@ export function createGuestStore(storage) {
       throw new Error(
         "The browser journal could not be read. Existing data has not been overwritten.",
       );
+    if (!data.revisions || !data.reflections) {initialiseMetadata(data);write(data);}
     return data;
   }
   function save(table, patch, id) {
@@ -120,6 +134,7 @@ export function createGuestStore(storage) {
       activities: "activities",
       activity_items: "items",
       activity_logs: "logs",
+      weekly_reflections: "reflections",
     }[table];
     if (!key) throw new Error("Unknown table");
     const old = id ? data[key].find((r) => r.id === id) : null;
@@ -141,6 +156,7 @@ export function createGuestStore(storage) {
         version: (old?.version ?? 0) + 1,
       });
       validateActivity(row);
+      if(old && typeOf(old)!==typeOf(row) && data.logs.some(l=>l.activity_id===id)) throw new Error("A habit with history keeps its type.");
       if (
         old &&
         old.item_based !== row.item_based &&
@@ -180,6 +196,15 @@ export function createGuestStore(storage) {
         )
       )
         throw new Error("Select an active item.");
+      row.habit_type=old?.habit_type??typeOf(a);
+      row.habit_timezone=old?old.habit_timezone:data.settings.timezone;
+      row.habit_day=row.habit_timezone?localDay(row.occurred_at,row.habit_timezone):null;
+      row.habit_snapshot=old && row.habit_day===old.habit_day?old.habit_snapshot:dayConfiguration(data,a,row.habit_day);
+      row.measurement_unit=old?old.measurement_unit:a.unit;
+      if(row.habit_type==='build'&&row.outcome!=null) throw new Error('Build entries use measurements.');
+      if(row.habit_type!=='build'&&!outcomes[row.habit_type].some(([o])=>o===row.outcome)) throw new Error('Choose an outcome.');
+      if(row.habit_type==='maintain'&&data.logs.some(l=>l.id!==row.id&&l.activity_id===row.activity_id&&habitDay(l,data.settings.timezone)===row.habit_day)) throw new Error('This boundary already has an entry for this date. Edit that entry.');
+      if(row.habit_note && row.habit_note.length>10000) throw new Error('Note is too long.');
       row.field_snapshot = old?.field_snapshot ?? structuredClone(a.fields);
       row.quantity_field_id = old ? old.quantity_field_id : a.quantity_field_id;
       const errors = validateFields(row.field_snapshot, row.values);
@@ -188,9 +213,16 @@ export function createGuestStore(storage) {
       if (!Number.isFinite(Date.parse(row.occurred_at)))
         throw new Error("Invalid occurrence time.");
     }
+    if(table==='weekly_reflections') {
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(row.week_start)||new Date(row.week_start+'T12:00:00Z').getUTCDay()!==1) throw new Error('Choose a Monday week start.');
+      if(data.reflections.some(r=>r.id!==row.id&&r.week_start===row.week_start)) throw new Error('This week already has a reflection.');
+      for(const field of ['went_well','difficult','next_step']) if(typeof row[field]!=='string'||row[field].length>10000) throw new Error('Invalid reflection.');
+    }
     data[key] = id
       ? data[key].map((r) => (r.id === id ? row : r))
       : [...data[key], row];
+    if(table==='activities') recordRevision(data,row);
+    if(table==='activity_items') recordRevision(data,data.activities.find(a=>a.id===row.activity_id));
     write(data);
     return row;
   }

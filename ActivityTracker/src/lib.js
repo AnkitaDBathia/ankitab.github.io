@@ -1,7 +1,12 @@
+import { validateHabit } from "./habits.js";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { addDays, format } from "date-fns";
 export const localDay = (timestamp, timezone) =>
   formatInTimeZone(timestamp, timezone, "yyyy-MM-dd");
+export const habitDay = (log, timezone) => log.habit_day ?? localDay(log.occurred_at, timezone);
+export const defaultValues = fields => Object.fromEntries(
+  fields.filter(f => f.default_value != null).map(f => [f.id, f.default_value]),
+);
 export const moveDay = (day, offset) =>
   format(addDays(new Date(`${day}T12:00:00`), offset), "yyyy-MM-dd");
 export function occurrence(day, time, timezone) {
@@ -56,7 +61,7 @@ export const total = (logs, activityId, itemId) =>
     )
     .reduce((s, l) => s + quantity(l), 0);
 export const onDay = (logs, day, tz) =>
-  logs.filter((l) => localDay(l.occurred_at, tz) === day);
+  logs.filter((l) => habitDay(l, tz) === day);
 export const completed = (logs, id) =>
   logs.some(
     (l) =>
@@ -66,6 +71,7 @@ export const completed = (logs, id) =>
       ),
   );
 export function validateActivity(a) {
+  validateHabit(a);
   if (
     a.daily_goal != null &&
     (!Number.isFinite(a.daily_goal) || a.daily_goal <= 0)
