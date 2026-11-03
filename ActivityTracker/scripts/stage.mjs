@@ -7,6 +7,7 @@ await mkdir(new URL("src/", output), { recursive: true });
 await copyFile(new URL("index.html", app), new URL("index.html", output));
 for (const file of [
   "app.js",
+  "accounts.js",
   "habits.js",
   "habit-ui.js",
   "login.js",

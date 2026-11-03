@@ -2,6 +2,44 @@ import { it } from "node:test";
 import assert from "node:assert/strict";
 import { Window } from "happy-dom";
 import { notify } from "../src/ui.js";
+it("dismisses success feedback after four seconds, including messages with Undo", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const window = new Window();
+  globalThis.document = window.document;
+  try {
+    for (const undo of [undefined, async () => {}]) {
+      notify("Saved", undo);
+      t.mock.timers.tick(3999);
+      assert.ok(document.querySelector(".toast"));
+      t.mock.timers.tick(1);
+      assert.equal(document.querySelector(".toast"), null);
+    }
+  } finally {
+    t.mock.timers.reset();
+    delete globalThis.document;
+    await window.happyDOM.close();
+  }
+});
+it("does not dismiss a pending or failed Undo when its original timeout expires", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const window = new Window();
+  globalThis.document = window.document;
+  try {
+    let fail;
+    notify("Saved", () => new Promise((resolve, reject) => { fail = reject; }));
+    const pending = document.querySelector(".toast button").onclick();
+    t.mock.timers.tick(4000);
+    assert.ok(document.querySelector(".toast"));
+    fail(new Error("Offline"));
+    await pending;
+    t.mock.timers.tick(4000);
+    assert.equal(document.querySelector(".toast button").textContent, "Retry undo");
+  } finally {
+    t.mock.timers.reset();
+    delete globalThis.document;
+    await window.happyDOM.close();
+  }
+});
 it("keeps Undo available after a failed request and removes feedback after successful retry", async () => {
   const window = new Window();
   globalThis.document = window.document;

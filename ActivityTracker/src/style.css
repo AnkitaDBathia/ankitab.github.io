@@ -355,27 +355,6 @@ main {
   padding: 8px 4px;
   background: transparent;
 }
-.welcome-banner {
-  background: #eaf0e4;
-  border: 1px solid #dfe7d6;
-  min-height: 204px;
-  border-radius: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 28px 33px;
-  overflow: hidden;
-}
-.welcome-banner h2 {
-  font-family: Georgia, serif;
-  font-size: 30px;
-  font-weight: 400;
-  margin: 9px 0;
-}
-.welcome-banner p {
-  font-size: 12px;
-  color: #788270;
-}
 .badge {
   display: inline-flex;
   gap: 6px;
@@ -386,21 +365,6 @@ main {
   font-size: 10px;
   margin-top: 18px;
   color: #537448;
-}
-.botanical {
-  width: 180px;
-  height: 150px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #79956b;
-  transform: rotate(-20deg);
-  border-radius: 50%;
-  background: #dee8d4;
-}
-.botanical span {
-  align-self: flex-start;
-  font-size: 40px;
 }
 .section-heading {
   display: flex;
@@ -917,14 +881,10 @@ progress {
   background: var(--bg);
   color-scheme: dark;
 }
-[data-theme="dark"] .welcome-banner,
 [data-theme="dark"] .daily-note {
   background: #2d4031;
   border-color: #3a4f3b;
   color: #c6d4bd;
-}
-[data-theme="dark"] .welcome-banner p {
-  color: #b3c2aa;
 }
 [data-theme="dark"] .activity-icon {
   filter: brightness(0.8);
@@ -939,9 +899,6 @@ progress {
 [data-theme="dark"] .badge {
   background: #334c37;
   color: #cfdbc6;
-}
-[data-theme="dark"] .botanical {
-  background: #354b32;
 }
 [data-theme="dark"] .auth-intro {
   background: #2a3d2c;
@@ -1058,28 +1015,6 @@ progress {
   }
   main {
     padding: 25px 18px;
-  }
-  .welcome-banner {
-    padding: 23px;
-    min-height: 190px;
-  }
-  .welcome-banner h2 {
-    font-size: 26px;
-  }
-  .welcome-banner p {
-    max-width: 240px;
-  }
-  .botanical {
-    width: 75px;
-    background: transparent;
-    opacity: 0.6;
-    margin-right: -20px;
-  }
-  .botanical svg {
-    width: 65px;
-  }
-  .botanical span {
-    display: none;
   }
   .cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1216,9 +1151,6 @@ progress {
 .activity-icon {
   font-size: 26px;
 }
-.botanical {
-  font-size: 130px;
-}
 .auth-art {
   font-size: 80px;
 }
@@ -1323,31 +1255,28 @@ progress {
 .history-search { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .5rem; }
 .history-search input { flex: 1; min-width: 160px; }
 [data-action="favourite-item"] { padding: .15rem .4rem; font-size: 1.1rem; }
-.dashboard-main { padding: 22px 28px; }
-.dashboard-main .page-heading { margin-bottom: 14px; gap: 12px; }
+.dashboard-main { padding: 14px 24px; }
+.dashboard-main .page-heading { margin-bottom: 8px; gap: 10px; }
 .dashboard-main .page-heading h1 { font-size: 28px; margin: 4px 0; }
 .dashboard-main .page-heading .eyebrow { display: none; }
 .day-summary { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 10px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-size: 12px; }
 .day-summary span { color: var(--muted); }
-.dashboard-main .section-heading { margin: 18px 0 10px; }
+.dashboard-main .section-heading { margin: 12px 0 8px; }
 /* Independent card heights avoid stretching every card to the longest mantra list. */
-.dashboard-main .cards { display: grid; columns: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.dashboard-main .cards { display: grid; columns: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: start; }
 .dashboard-main .activity-card,
 .dashboard-main .add-card { break-inside: avoid; width: 100%; margin: 0; min-height: 0; }
-.dashboard-main .activity-card { padding: 14px; }
 .activity-card-heading { display: flex; align-items: center; gap: 10px; }
 .dashboard-main .activity-icon { width: 34px; height: 34px; border-radius: 9px; }
 .dashboard-main .activity-card h3 { margin: 0; font-size: 14px; }
 .dashboard-main .metric { font-size: 28px; margin: 8px 0 0; line-height: 1.2; }
-.dashboard-main .activity-card p { margin: 5px 0 10px; min-height: 0; font-size: 11px; }
-.dashboard-main .card-action { margin-top: 8px; min-height: 36px; }
+.dashboard-main .activity-card p { margin: 5px 0 10px; min-height: 0; font-size: 12px; line-height: 1.5; }
+.dashboard-main .card-action { margin-top: 8px; font-size: 12px; min-height: 38px; }
 .dashboard-main .completion-actions { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
 .dashboard-main .completion-actions .card-action { width: auto; flex: 1 1 100px; margin-top: 0; }
 .dashboard-main .target-summary { padding-top: 8px; margin: 8px 0; border-top: 1px solid var(--border); gap: 4px; }
-.dashboard-main .target-action { gap: 5px; }
 .dashboard-main .target-action strong { font-size: 12px; }
-.dashboard-main .target-log { min-height: 32px; }
-.dashboard-main .add-card { padding: 16px; }
+.dashboard-main .add-card { padding: 10px; min-height: 76px; border-radius: 12px; }
 .dashboard-main .add-card > span { font-size: 24px; }
 @media (max-width: 1150px) {
   .dashboard-main .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1361,28 +1290,58 @@ progress {
 }
 
 /* Keep everyday controls legible and give multi-item activities a dedicated row. */
-.dashboard-main .activity-card { padding: 18px; border-radius: 16px; gap: 2px; }
-.dashboard-main .activity-card-heading h3 { font-size: 16px; font-weight: 600; }
-.dashboard-main .activity-card .metric { font-size: 26px; margin-top: 12px; }
-.dashboard-main .activity-card p { font-size: 12px; line-height: 1.5; }
-.dashboard-main .activity-card.has-item-targets { grid-column: 1 / -1; }
-.dashboard-main .has-item-targets .card-targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 8px 0; }
-.dashboard-main .has-item-targets .target-summary { border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin: 0; background: var(--surface); }
+.dashboard-main .activity-card { padding: 12px; border-radius: 12px; gap: 2px; }
+.dashboard-main .activity-card-heading h3 { font-size: 14px; font-weight: 600; }
+.dashboard-main .activity-card .metric { font-size: 22px; margin: 4px 0; }
 .dashboard-main .target-summary small { font-size: 12px; line-height: 1.5; }
-.dashboard-main .target-action { align-items: flex-start; flex-direction: column; gap: 10px; }
+.dashboard-main .target-action { align-items: center; flex-direction: row; gap: 6px; }
 .dashboard-main .quick-amounts { justify-content: flex-start; gap: 6px; }
 .dashboard-main .target-log { min-height: 36px; padding: 6px 12px; font-size: 12px; }
-.dashboard-main .completion-actions { margin-top: auto; padding-top: 10px; gap: 8px; }
-.dashboard-main .completion-actions .card-action { flex-basis: 100%; }
+.dashboard-main .completion-actions { margin-top: 4px; padding-top: 0; gap: 5px; }
+.dashboard-main .completion-actions .card-action { flex: 1 1 auto; }
 .dashboard-main .completion-actions .text-button { border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; min-height: 34px; font-size: 12px; }
-.dashboard-main .card-action { font-size: 12px; min-height: 38px; }
-.dashboard-main .has-item-targets > .card-action { align-self: flex-start; width: auto; padding-inline: 18px; }
-.dashboard-main .add-card { min-height: 110px; border-radius: 16px; }
 @media (max-width: 760px) {
-  .dashboard-main .has-item-targets .card-targets { grid-template-columns: 1fr; }
   .dashboard-main .target-log { min-height: 40px; }
 }
 
 .habit-days, .habit-outcomes { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
 .habit-outcomes button { min-height:40px; padding:8px 12px; }
 .habit-days .check { margin:0; }
+
+.dashboard-main .activity-card > p { display: none; }
+.dashboard-main .date-notice { margin: 0 0 8px; padding: 4px 10px; }
+.dashboard-main .date-notice button { padding: 5px 10px; min-height: 30px; }
+ .dashboard-main .activity-card:has(.habit-outcomes) > p { display: block; margin: 4px 0; }
+
+/* Compact dashboard: logging stays visible; secondary detail expands on demand. */
+.dashboard-toolbar, .dashboard-toolbar > div { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.dashboard-toolbar { margin:10px 0; font-size:12px; }
+.dashboard-toolbar button { padding:6px 12px; }
+.habit-panel { margin:10px 0; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+.habit-panel > summary { cursor:pointer; padding:12px; font-size:14px; }
+.habit-panel > summary > span { float:right; color:var(--muted); font-size:12px; margin-left:10px; }
+.habit-panel > .cards, .habit-rows { padding:0 10px 10px; }
+.habit-rows { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.habit-row { padding:10px; border:1px solid var(--border); border-radius:9px; min-width:0; }
+.habit-row-top, .habit-row-heading, .row-actions { display:flex; align-items:center; gap:8px; }
+.habit-row-top { justify-content:space-between; flex-wrap:wrap; }
+.habit-row-heading { flex:1; min-width:120px; }
+.habit-row-heading a { font-size:14px; }
+.habit-row-heading small { display:block; color:var(--muted); font-size:12px; margin-top:3px; }
+.habit-row-heading > div { overflow-wrap:anywhere; }
+.row-actions { flex-wrap:wrap; }
+.dashboard-main .habit-row .card-action { width:auto; margin:0; padding:6px 12px; min-height:34px; }
+.row-actions .text-button, .row-more > summary { padding:6px 10px; min-height:34px; font-size:12px; border:1px solid var(--border); border-radius:7px; cursor:pointer; }
+.row-more > div { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+.item-habit { grid-column:1 / -1; }
+.item-habit .habit-panel { margin:8px 0 0; border:0; background:transparent; }
+.item-habit .habit-panel > summary { padding:6px 0; font-size:12px; }
+.item-target-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:8px; padding-top:6px; }
+.dashboard-main .item-target-grid .target-summary { margin:0; padding:8px; border:1px solid var(--border); border-radius:8px; }
+.habit-panel[data-panel="recent"] > a { display:block; padding:0 12px; font-size:12px; }
+.habit-panel[data-panel="recent"] > .panel { margin:8px; }
+@media(max-width:760px) {
+  .habit-rows, .item-target-grid { grid-template-columns:1fr; }
+  .dashboard-main .habit-row button, .row-more > summary { min-height:40px; }
+  .habit-panel > summary { padding:12px 10px; }
+}

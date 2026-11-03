@@ -46,6 +46,7 @@ beforeAll(
     await asUser(alice);
     await db.exec("select initialize_journey(); insert into activity_logs(id,user_id,activity_id,values,occurred_at) select '33333333-3333-4333-8333-333333333333',user_id,id,'{\"quantity\":7}','2025-01-01T10:00:00Z' from activities where seed_key='water'; reset role;");
     await db.exec(readFileSync(new URL("../supabase/migrations/202611020001_unified_habits.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("../supabase/migrations/202611020002_account_admins.sql", import.meta.url), "utf8"));
     await asUser(alice);
     await db.exec("select public.initialize_journey();");
     water = (await db.query("select id from activities where seed_key='water'"))
@@ -65,6 +66,19 @@ afterAll(async () => {
   await db?.close();
 });
 describe("Real PostgreSQL migration, validation and RLS", () => {
+  it('allows only SQL administrators to grant account-creation access', async()=>{
+    await db.exec('reset role');
+    await db.query('insert into account_admins(user_id) values($1)',[alice]);
+    await asUser(bob);
+    assert.equal((await db.query('select * from account_admins')).rows.length,0);
+    await assert.rejects(db.query('insert into account_admins(user_id) values($1)',[bob]));
+    await assert.rejects(db.query('update account_admins set user_id=$1',[bob]));
+    await asUser(alice);
+    assert.equal((await db.query('select * from account_admins')).rows[0].user_id,alice);
+    await assert.rejects(db.query('insert into account_admins(user_id) values($1)',[bob]));
+    await db.exec('reset role;set role anon');
+    await assert.rejects(db.query('select * from account_admins'));
+  });
   it("keeps usernames private and limits server-side login attempts", async () => {
     await db.exec("reset role;");
     await db.query("insert into login_usernames(username,user_id) values('alice', $1)", [alice]);

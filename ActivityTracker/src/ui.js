@@ -171,11 +171,13 @@ export function notify(message, undo) {
   toast.className = "toast";
   toast.setAttribute("role", "status");
   toast.textContent = message;
+  const timeout = setTimeout(() => toast.remove(), 4000);
   if (undo) {
     const action = document.createElement("button");
     action.type = "button";
     action.textContent = "Undo";
     action.onclick = async () => {
+      clearTimeout(timeout);
       action.disabled = true;
       action.textContent = "Undoing...";
       try {
@@ -191,9 +193,8 @@ export function notify(message, undo) {
     const dismiss = document.createElement("button");
     dismiss.type = "button";
     dismiss.textContent = "Dismiss";
-    dismiss.onclick = () => toast.remove();
+    dismiss.onclick = () => { clearTimeout(timeout); toast.remove(); };
     toast.append(dismiss);
   }
   document.body.append(toast);
-  if (!undo) setTimeout(() => toast.remove(), 4000);
 }

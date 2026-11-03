@@ -19,7 +19,7 @@ The database schema is unchanged by the frontend conversion. Do not rerun the in
 
 Before deploying this update, run **`ActivityTracker/supabase/migrations/202611020001_unified_habits.sql` once** in Supabase SQL Editor. Apply any earlier migrations you have not already run, in filename order. Do not rerun previously applied migrations. This adds columns and two tables; it does not replace existing activities, logs, accounts or IDs. Existing activities become Build habits, with no duplicate defaults. The username-login Edge Function does not change.
 
-After the migration, commit and push the website changes. Wait for the Pages deployment to succeed, then open **https://ankitadbathia.github.io/ankitab.github.io/ActivityTracker/index.html**. The app's asset version is `20261102-habits`; the website URL stays the same.
+After the migration, commit and push the website changes. Wait for the Pages deployment to succeed, then open **https://ankitadbathia.github.io/ankitab.github.io/ActivityTracker/index.html**. The app's asset version is `20261102-accounts`; the website URL stays the same.
 
 Create or configure an activity and choose:
 
@@ -45,6 +45,43 @@ The optional **Reflect on this week** action is in Insights. It opens three shor
 Verification uses the existing Node test runner, happy-dom form tests, and real PostgreSQL migrations in PGlite. Run `npm.cmd run lint`, `npm.cmd test`, and `npm.cmd run stage` from `ActivityTracker`. Staging copies static assets only; there is no build compiler or separate type-check command. Live Supabase migration and authenticated cross-device checks must be performed against your project after deployment.
 
 ## Database storage and cross-device access
+
+### Administrator-only account creation
+
+After the one-time setup below, sign in with your own administrator account and open **Settings → Accounts → Create account**. Enter a username and password; recovery email is optional. The new user signs in with their username and password. This form creates regular accounts only and does not switch you into the new account. Supabase's own Create User form still requires an email; use My Journey's form instead.
+
+One-time setup:
+
+1. Run `ActivityTracker/supabase/migrations/202611020002_account_admins.sql` in Supabase SQL Editor after the earlier migrations.
+2. In Authentication → Users, copy **your own existing account's User UID**. Run this SQL with that UUID substituted (do not use the new user's UUID):
+
+   ```sql
+   insert into public.account_admins(user_id)
+   values ('YOUR_OWN_EXISTING_USER_UUID')
+   on conflict do nothing;
+   ```
+
+   This is the only administrator assignment required. Do not add other users to this table. Neither regular users nor app administrators can grant administrator membership through the website.
+
+3. Deploy the new Edge Function from the `ActivityTracker` directory:
+
+   ```powershell
+   npx supabase login
+   npx supabase functions deploy create-account --project-ref lsksomxjzfnwqbcabuvx --no-verify-jwt
+   ```
+
+   Alternatively use the Supabase Edge Function editor: create a function named **`create-account`**, add both `index.ts` and `handler.js` from `ActivityTracker/supabase/functions/create-account/`, then deploy. Disable the gateway's legacy JWT verification for this function. The handler itself verifies the bearer token with Supabase Auth and then checks administrator membership on every request; unauthenticated and ordinary users are rejected. Keep the existing `username-login` function deployed.
+
+4. Keep **Allow new users to sign up** disabled in Supabase Authentication settings. This prevents direct public Auth registration; administrator-created accounts still work. Do not enable public signup to use this feature.
+5. Commit/push the website files, wait for GitHub Pages deployment, then refresh and sign in as your administrator account. Account-creation controls are in Settings. The current asset version is `20261102-accounts`.
+
+The service-role key stays in the Edge Function environment, never in browser configuration. The browser sends only its current user's access token. Account creation checks usernames, password length, optional email, and duplicate usernames. Requests are limited to ten per administrator per fifteen minutes. Accounts without a recovery email use an internal `@users.invalid` address; users never need to enter it. For an optional recovery email, enter the intended user's correct address: the administrator confirms it when creating the account, and no verification email is sent by this flow. Existing accounts are not modified.
+
+If username assignment fails, the function checks whether it actually succeeded before rolling back the newly created account. If the server cannot confirm or clean up a partial result, the message identifies the account to check in Supabase. Do not repeatedly create another account after such a message.
+
+Forgotten passwords without a recovery email still use the existing `manage-user.mjs` administrator tool with the `reset` action. Password-reset controls are not part of the account-creation form. This update has not automatically applied the SQL, assigned an administrator, changed signup settings, or deployed the function to the live project.
+
+Implementation follows Supabase's [verified-user lookup](https://supabase.com/docs/reference/javascript/auth-getuser) and [server-only createUser API](https://supabase.com/docs/reference/javascript/auth-admin-createuser).
 
 Supabase storage and sign-in are enabled by default again. Create an email/password account in Supabase Authentication > Users > Add user > Create new user, then use that same account on desktop and mobile. Confirm your own email using the dashboard option if offered. Keep public signups disabled if this should remain your private application.
 

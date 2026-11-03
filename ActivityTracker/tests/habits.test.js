@@ -148,3 +148,19 @@ it('enforces guest boundary uniqueness, corrections and frozen settings',()=>{
   assert.equal(updated.habit_snapshot.boundary,a.boundary);assert.equal(updated.habit_day,today);assert.equal(store.load().logs.length,1);
   store.remove(entry.id);assert.equal(store.load().logs.length,0);
 });
+
+it('keeps quick logging visible while allowing dashboard panels to collapse',()=>{
+  const a={...habit(),item_based:true,seed_key:'mantra',daily_goal:null};
+  const data=dataFor(a);
+  data.items=[{id:'m',activity_id:a.id,name:'GIP',goal:9,goal_period:'daily'}];
+  data.revisions[0].snapshot={...a,items:data.items};
+  const state={page:'dashboard',day:days[0]};
+  document.body.innerHTML=renderView(data,state,'');
+  assert.ok(document.querySelector('[data-panel="build"]').open);
+  assert.ok(document.querySelector('[data-panel="items-a"]').open);
+  assert.ok(document.querySelector('[data-action="increment-item"]'));
+  assert.equal(document.querySelector('[data-panel="recent"]').open,false);
+  document.body.innerHTML=renderView(data,{...state,panels:{build:false,'items-a':false}},'');
+  assert.equal(document.querySelector('[data-panel="build"]').open,false);
+  assert.equal(document.querySelector('[data-panel="items-a"]').open,false);
+});

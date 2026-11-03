@@ -30,7 +30,11 @@ export async function loadJourney() {
     readRows(db().from("habit_revisions").select("*").order("id")),
     readRows(db().from("weekly_reflections").select("*").order("week_start").order("id")),
   ]);
+  const access = await db().from("account_admins").select("user_id").limit(1);
+  // Existing journals keep working while the optional admin migration is deployed.
+  if (access.error && !["42P01", "PGRST205"].includes(access.error.code)) throw access.error;
   return {
+    canCreateAccounts: !access.error && access.data.length > 0,
     revisions, reflections,
     activities: results[0].data,
     items: results[1].data,

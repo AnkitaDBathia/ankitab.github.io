@@ -17,11 +17,15 @@ const empty =
 const cardIcon = (a) =>
   `<span class="activity-icon ${h(a.icon)}">${icon(a.icon)}</span>`;
 
-export function activityAction(activity, daily, cls = "primary") {
+export function activityAction(activity, daily, cls = "primary", compact = false) {
   if(typeOf(activity)!=="build") return button("Record outcome", "entry", activity.id, cls);
   if (quickDoneValues(activity)) {
     const done = completed(daily, activity.id);
     const latest = latestCompletion(daily, activity.id);
+    if (compact) {
+      const extra = `${latest?.id && supportsMood(activity) ? button("Mood", "edit-log", latest.id, "text-button") : ""}${done ? button("+ Log again", "entry", activity.id, "text-button") : completionOnly(activity) ? "" : button("Add details", "entry", activity.id, "text-button")}`;
+      return `<div class="row-actions"><button type="button" class="${h(cls)} ${done ? "is-done" : ""}" data-action="mark-done" data-id="${h(activity.id)}" ${done ? "disabled" : ""}>${done ? "Done" : "Mark done"}</button>${latest?.id ? button("Undo", "undo-log", latest.id, "text-button") : ""}${extra ? `<details class="row-more"><summary aria-label="More actions for ${h(activity.name)}">More</summary><div>${extra}</div></details>` : ""}</div>`;
+    }
     return `<div class="completion-actions"><button type="button" class="${h(cls)} ${done ? "is-done" : ""}" data-action="mark-done" data-id="${h(activity.id)}" ${done ? "disabled" : ""}>${done ? "Done" : "Mark done"}</button>${latest?.id && supportsMood(activity) ? button("Mood", "edit-log", latest.id, "text-button") : ""}${latest?.id ? button("Undo", "undo-log", latest.id, "text-button") : ""}${done ? button("+ Log again", "entry", activity.id, "text-button") : completionOnly(activity) ? "" : button("Add details", "entry", activity.id, "text-button")}</div>`;
   }
   return button(
@@ -67,6 +71,25 @@ function cardTargets(activity, data, day) {
       .map((i) => targetSummary(activity, i, data, day, true))
       .join("")
   );
+}
+
+function dashboard(data, state, active, daily) {
+  const { day } = state;
+  const panel = (key, title, count, body, open = true) => `<details class="habit-panel" data-panel="${h(key)}" ${(state.panels?.[key] ?? open) ? 'open' : ''}><summary><strong>${h(title)}</strong><span>${h(count)}</span></summary>${body}</details>`;
+  const buildRow = a => {
+    const done = !!quickDoneValues(a), count = daily.filter(l=>l.activity_id===a.id).length;
+    const metric = done ? (completed(daily,a.id)?'Done':'Not yet') : `${a.quantity_field_id?total(daily,a.id):count} ${a.quantity_field_id?a.unit:'entries'}`;
+    const targets = cardTargets(a,data,day);
+    const heading = `<div class="habit-row-heading">${cardIcon(a)}<div><a href="#activity/${h(a.id)}"><strong>${h(a.name)}</strong></a><small>${h(metric)}${!scheduled(configurationAt(data,a,day)??a,day)?' · Not scheduled':''}</small></div></div>`;
+    const actions = activityAction(a,daily,'card-action',true);
+    if (a.item_based && targets) return `<article class="habit-row item-habit"><div class="habit-row-top">${heading}${actions}</div>${panel(`items-${a.id}`,a.seed_key==='mantra'?'Mantras and quick add':'Items and targets',`${data.items.filter(i=>i.activity_id===a.id&&!i.archived&&i.goal).length} targets`, `<div class="item-target-grid">${targets}</div>`)}</article>`;
+    return `<article class="habit-row"><div class="habit-row-top">${heading}${actions}</div>${targets}</article>`;
+  };
+  const labels={build:'Build · Positive habits',maintain:'Maintain · Healthy boundaries',replace:'Replace · Healthier choices'};
+  return `<div class="dashboard-toolbar"><span><strong>${active.filter(a=>daily.some(l=>l.activity_id===a.id)).length} / ${active.length}</strong> habits recorded</span><div><a href="#activities">Manage habits</a>${button('+ Habit','create-activity')}</div></div>${Object.entries(labels).filter(([type])=>active.some(a=>typeOf(a)===type)).map(([type,label])=>{
+    const habits=active.filter(a=>typeOf(a)===type);
+    return panel(type,label,`${habits.length} habits`, `<div class="${type==='build'?'habit-rows':'cards'}">${habits.map(a=>type==='build'?buildRow(a):boundaryCard(a,data,day)).join('')}</div>`);
+  }).join('')}${!active.length?'<p class="muted">Create a habit to get started.</p>':''}${panel('recent','Recent entries',daily.length,`<a href="#history">View history</a><section class="panel">${logList(daily.slice(0,5),data)}</section>`,false)}`;
 }
 
 export function logList(logs, data) {
@@ -118,8 +141,7 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
     ["settings", "Settings", "⚙"],
   ];
   let content = "";
-  if (page === "dashboard")
-    content = `<section class="day-summary" aria-label="Daily summary"><strong>${active.filter((a) => daily.some((l) => l.activity_id === a.id)).length} / ${active.length} activities recorded</strong><span>${daily.length} entries on this day</span></section><div class="section-heading"><h2>Build - positive habits</h2><a href="#activities">All activities ↗</a></div><section class="cards">${[...active.filter(a=>typeOf(a)==="build")].sort((a,b) => Number(data.items.some(i => i.activity_id === a.id && !i.archived && i.goal)) - Number(data.items.some(i => i.activity_id === b.id && !i.archived && i.goal))).map((a) => `<article class="activity-card ${data.items.some(i => i.activity_id === a.id && !i.archived && i.goal) ? "has-item-targets" : ""} tone-${h(a.icon)}"><div class="activity-card-heading">${cardIcon(a)}<a class="grow" href="#activity/${h(a.id)}"><h3>${h(a.name)}</h3></a><a class="icon-button" href="#activity/${h(a.id)}" aria-label="View ${h(a.name)}">&#8599;</a></div><div class="metric">${quickDoneValues(a) ? (completed(daily, a.id) ? "Done" : "Not yet") : a.quantity_field_id ? total(daily, a.id).toLocaleString() : daily.filter((l) => l.activity_id === a.id).length}<span>${quickDoneValues(a) ? "" : h(a.quantity_field_id ? a.unit : "entries")}</span></div><p>${completed(daily, a.id) ? "✓ Practice completed" : h(a.description)}</p>${!scheduled(configurationAt(data,a,day)??a,day)?'<small class="muted">Not scheduled today</small>':""}<div class="card-targets">${cardTargets(a, data, day)}</div>${activityAction(a, daily, "card-action")}</article>`).join("")}<button class="add-card" data-action="create-activity"><span>＋</span><strong>A new little ritual</strong><small>Create your own activity</small></button></section>${['maintain','replace'].map(type=>`<div class="section-heading"><h2>${type==='maintain'?'Maintain - healthy boundaries':'Replace - healthier choices'}</h2>${button('+ Create habit','create-activity')}</div><section class="cards">${active.filter(a=>typeOf(a)===type).map(a=>boundaryCard(a,data,day)).join('')||`<p class="muted">${type==='maintain'?'Set a clear boundary you want to keep.':'Choose a healthier response when an opportunity occurs.'}</p>`}</section>`).join('')}<div class="section-heading"><h2>Today’s moments</h2><a href="#history">View history ↗</a></div><section class="panel">${logList(daily.slice(0, 5), data)}</section>`;
+  if (page === "dashboard") content = dashboard(data, state, active, daily);
   if (page === "activities")
     content = `<div class="section-heading"><label class="check"><input type="checkbox" data-change="archived" ${showArchived ? "checked" : ""}> Show archived</label>${button("＋ Create activity", "create-activity", "", "primary")}</div><section class="panel">${data.activities
       .filter((a) => showArchived || !a.archived)
@@ -168,6 +190,8 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
       ],
       data.settings.appearance,
     )}<p role="alert" class="error"></p><button class="primary">Save preferences</button></form></section><section class="panel padded"><h2>Make it your own</h2><p>Create activities, configure entry fields, or update your yoga and meditation types.</p>${button("＋ Create activity", "create-activity")}<p><a href="#activities">Manage existing activities →</a></p></section></div>`;
+  if (page === "settings" && !guestMode && data.canCreateAccounts)
+    content += `<section class="panel padded"><h2>Accounts</h2><p>Create a private account for someone you choose. A recovery email is optional.</p>${button("Create account", "create-account", "", "primary")}</section>`;
   if (!content)
     content =
       '<div class="empty"><h2>Page not found</h2><a href="#dashboard">Return to My day</a></div>';

@@ -1,2 +1,6 @@
 [functions.username-login]
 verify_jwt = false
+
+[functions.create-account]
+# The handler validates the bearer token through Auth and checks account_admins.
+verify_jwt = false

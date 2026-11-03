@@ -1,6 +1,7 @@
 import { typeOf, habitDay, dayConfiguration, weekStart } from "./habits.js";
 import { outcomeForm, reflectionForm } from "./habit-ui.js";
 import { signIn } from "./login.js";
+import { createAccount, createAccountForm } from "./accounts.js";
 import { supabase } from "./supabase.js";
 import { guestMode } from "./mode.js";
 import {
@@ -19,6 +20,13 @@ import { notify, sheet, valueOf } from "./ui.js";
 import { createResumeSync } from "./sync.js";
 
 const root = document.getElementById("root");
+// Keep panel choices through logging, refreshes and page navigation in this session.
+root.addEventListener("toggle", e => {
+  if (e.target.isConnected && e.target.dataset.panel) {
+    state.panels ??= {};
+    state.panels[e.target.dataset.panel] = e.target.open;
+  }
+}, true);
 const state = {
   page: location.hash.slice(1) || "dashboard",
   day: localDay(new Date(), "Asia/Kolkata"),
@@ -161,7 +169,7 @@ async function mutate(table, row, id) {
   } else notify("Saved.");
 }
 const undoPending = new Set();
-async function undoEntry(id) {
+async function undoEntry(id, message = "Entry undone.") {
   if (undoPending.has(id) || !data?.logs.some((l) => l.id === id)) return;
   undoPending.add(id);
   writeVersion++;
@@ -171,7 +179,7 @@ async function undoEntry(id) {
     if (session?.user.id !== owner) return;
     data.logs = data.logs.filter((l) => l.id !== id);
     render();
-    notify("Entry undone.");
+    notify(message);
   } finally {
     undoPending.delete(id);
   }
@@ -240,6 +248,14 @@ root.addEventListener("click", async (e) => {
       return;
     }
     if (!data) return;
+    if (action === "create-account") {
+      if (guestMode || !data.canCreateAccounts) throw new Error("Only the administrator can create accounts.");
+      createAccountForm(async details => {
+        const result = await createAccount(supabase, window.MY_JOURNEY_CONFIG, details);
+        notify(`Account created for ${result.username}. They can now sign in with their username and password.`);
+      });
+      return;
+    }
     if (action === "toggle-search") {
       state.searchOpen = !state.searchOpen;
       state.searchQuery = "";
@@ -335,13 +351,7 @@ root.addEventListener("click", async (e) => {
         mutate("activity_items", { archived: !item.archived }, id),
       );
     if (action === "delete-log")
-      confirm("Delete this entry?", async () => {
-        writeVersion++;
-        await deleteLog(id);
-        data.logs = data.logs.filter((l) => l.id !== id);
-        render();
-        notify("Entry deleted.");
-      });
+      confirm("Delete this entry?", () => undoEntry(id, "Entry deleted."));
   } catch (e) {
     showError(
       new Error(`Could not save the change. Please retry. ${e.message ?? e}`),
@@ -354,31 +364,16 @@ root.addEventListener("click", async (e) => {
 });
 root.addEventListener("change", (e) => {
   const control = e.target;
-  switch (control.dataset.change) {
-    case "day":
-      if (control.value) state.day = control.value;
-      break;
-    case "archived":
-      state.showArchived = control.checked;
-      break;
-    case "filter":
-      state.filter = control.value;
-      break;
-    case "item-filter":
-      state.itemFilter = control.value;
-      break;
-    case "period":
-      state.period = Number(control.value);
-      break;
-    case "report-end":
-      if (control.value) state.reportEnd = control.value;
-      break;
-    case "report-activity":
-      state.reportActivity = control.value;
-      break;
-    default:
-      return;
-  }
+  const change = control.dataset.change;
+  const key = {
+    day: "day", archived: "showArchived", filter: "filter",
+    "item-filter": "itemFilter", period: "period",
+    "report-end": "reportEnd", "report-activity": "reportActivity",
+  }[change];
+  if (!key) return;
+  if (["day", "report-end"].includes(change) && !control.value) return;
+  state[key] = change === "archived" ? control.checked
+    : change === "period" ? Number(control.value) : control.value;
   render();
 });
 root.addEventListener("submit", async (e) => {
@@ -453,6 +448,7 @@ function acceptSession(next, event) {
   session = next;
   if (event === "PASSWORD_RECOVERY") authMode = "recovery";
   if (changed) {
+    state.panels = {};
     resumeSync.cancel();
     loadVersion++;
     loading = false;

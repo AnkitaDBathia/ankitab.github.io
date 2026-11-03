@@ -11,8 +11,8 @@ export function configurationAt(data, activity, day) {
   return (data.revisions ?? []).filter(r=>r.activity_id===activity.id && r.effective_day<=day)
     .sort((a,b)=>b.effective_day.localeCompare(a.effective_day))[0]?.snapshot ?? null;
 }
-export function dayConfiguration(data, activity, day) {
-  const first = data.logs.filter(l=>l.activity_id===activity.id && habitDay(l,data.settings.timezone)===day && l.habit_snapshot)
+export function dayConfiguration(data, activity, day, logs = data.logs) {
+  const first = logs.filter(l=>l.activity_id===activity.id && habitDay(l,data.settings.timezone)===day && l.habit_snapshot)
     .sort((a,b)=>(a.created_at??a.occurred_at).localeCompare(b.created_at??b.occurred_at)||a.id.localeCompare(b.id))[0];
   const cfg=first?.habit_snapshot ?? configurationAt(data,activity,day);
   return cfg && typeOf(cfg)===typeOf(activity)?cfg:null;
@@ -44,13 +44,20 @@ export function validateHabit(a) {
 }
 export function habitSummary(data,a,days) {
   const type=typeOf(a), tz=data.settings.timezone;
+  const today=localDay(new Date(),tz), byDay=new Map();
+  for(const log of data.logs) {
+    if(log.activity_id!==a.id) continue;
+    const day=habitDay(log,tz);
+    if(!byDay.has(day)) byDay.set(day,[]);
+    byDay.get(day).push(log);
+  }
   const result={type,actual:0,recorded:0,achieved:0,applicable:0,missing:0,na:0,unknown:0,opportunities:0,successes:0,incomplete:0,goalDays:0,practised:0};
   for(const day of days) {
-    if(day>localDay(new Date(),tz)) continue;
-    const logs=data.logs.filter(l=>l.activity_id===a.id && habitDay(l,tz)===day);
+    if(day>today) continue;
+    const logs=byDay.get(day)??[];
     result.actual+=total(logs,a.id);
     // A saved entry freezes that day's criteria. Otherwise use the dated revision.
-    const cfg=dayConfiguration(data,a,day);
+    const cfg=dayConfiguration(data,a,day,logs);
     if(type==='replace') {
       result.successes+=logs.filter(l=>l.outcome==='replaced').length;
       result.incomplete+=logs.filter(l=>l.outcome==='not_replaced').length;
