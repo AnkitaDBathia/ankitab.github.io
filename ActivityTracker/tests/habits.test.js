@@ -164,3 +164,17 @@ it('keeps quick logging visible while allowing dashboard panels to collapse',()=
   assert.equal(document.querySelector('[data-panel="build"]').open,false);
   assert.equal(document.querySelector('[data-panel="items-a"]').open,false);
 });
+
+it('renders compact boundary controls directly and keeps guidance under More',()=>{
+  for(const type of ['maintain','replace']) {
+    const a=habit(type),data=dataFor(a);
+    document.body.innerHTML=boundaryCard(a,data,days[0],true);
+    assert.ok(document.querySelector('.boundary-row'));
+    assert.equal(document.querySelectorAll('.boundary-actions > [data-action="habit-outcome"]').length,3);
+    assert.equal(document.querySelector('.row-more').open,false);
+    assert.ok(document.querySelector('.row-more [data-action="entry"]'));
+    assert.equal(document.querySelector('.activity-card'),null);
+    document.body.innerHTML=boundaryCard({...a,archived:true},data,days[0],true);
+    assert.equal(document.querySelector('[data-action="habit-outcome"]'),null);
+  }
+});

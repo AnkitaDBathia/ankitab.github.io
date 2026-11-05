@@ -56,12 +56,13 @@ export function outcomeForm(activity,day,tz,save,edit) {
     });
 }
 
-export function boundaryCard(a,data,day) {
+export function boundaryCard(a,data,day,compact=false) {
   const type=typeOf(a),logs=data.logs.filter(l=>l.activity_id===a.id&&habitDay(l,data.settings.timezone)===day);
   const latest=[...logs].sort((x,y)=>y.occurred_at.localeCompare(x.occurred_at))[0];
   const cfg=dayConfiguration(data,a,day)??a;
   const summary=type==='maintain'?(latest?outcomeLabel(latest.outcome):'Not checked yet')
     :logs.length?`${logs.filter(l=>l.outcome==='replaced').length} successful replacements recorded`:'No opportunities recorded';
+  if(compact) return `<article class="habit-row boundary-row"><div class="habit-row-heading"><span class="activity-icon ${h(a.icon)}">${icon(a.icon)}</span><div><a href="#activity/${h(a.id)}"><strong>${h(a.name)}</strong></a><small>${h(type==='maintain'?cfg.boundary:`${cfg.unwanted_behavior} ? ${cfg.replacement}`)}</small><small class="boundary-status">${h(summary)}${!scheduled(cfg,day)?' ? Not scheduled':''}</small></div></div><div class="row-actions boundary-actions">${a.archived?'<span>Archived</span>':outcomes[type].map(([value,label])=>`<button type="button" data-action="habit-outcome" data-id="${h(a.id)}" data-outcome="${value}" ${type==='maintain'&&latest?.outcome===value?'disabled aria-pressed="true"':''}>${h(label)}</button>`).join('')}${latest?button('Undo','undo-log',latest.id,'text-button'):''}<details class="row-more"><summary aria-label="More about ${h(a.name)}">More</summary><div>${!a.archived?button('Add details','entry',a.id,'text-button'):''}<small class="muted">${type==='replace'?'Record only when a real opportunity occurs.':'No record is not a missed boundary.'}</small></div></details></div></article>`;
   return `<article class="activity-card"><div class="activity-card-heading"><span class="activity-icon ${h(a.icon)}">${icon(a.icon)}</span><a class="grow" href="#activity/${h(a.id)}"><h3>${h(a.name)}</h3></a><span class="badge">${h(type)}</span></div>
     <p>${h(type==='maintain'?cfg.boundary:`${cfg.unwanted_behavior} → ${cfg.replacement}`)}</p><strong>${h(summary)}</strong>
     ${!scheduled(cfg,day)?'<p class="muted">Not scheduled for this day. Recording is optional.</p>':''}

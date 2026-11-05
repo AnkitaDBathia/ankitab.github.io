@@ -88,7 +88,7 @@ function dashboard(data, state, active, daily) {
   const labels={build:'Build · Positive habits',maintain:'Maintain · Healthy boundaries',replace:'Replace · Healthier choices'};
   return `<div class="dashboard-toolbar"><span><strong>${active.filter(a=>daily.some(l=>l.activity_id===a.id)).length} / ${active.length}</strong> habits recorded</span><div><a href="#activities">Manage habits</a>${button('+ Habit','create-activity')}</div></div>${Object.entries(labels).filter(([type])=>active.some(a=>typeOf(a)===type)).map(([type,label])=>{
     const habits=active.filter(a=>typeOf(a)===type);
-    return panel(type,label,`${habits.length} habits`, `<div class="${type==='build'?'habit-rows':'cards'}">${habits.map(a=>type==='build'?buildRow(a):boundaryCard(a,data,day)).join('')}</div>`);
+    return panel(type,label,`${habits.length} habits`, `<div class="${type==='build'?'habit-rows':'boundary-rows'}">${habits.map(a=>type==='build'?buildRow(a):boundaryCard(a,data,day,true)).join('')}</div>`);
   }).join('')}${!active.length?'<p class="muted">Create a habit to get started.</p>':''}${panel('recent','Recent entries',daily.length,`<a href="#history">View history</a><section class="panel">${logList(daily.slice(0,5),data)}</section>`,false)}`;
 }
 

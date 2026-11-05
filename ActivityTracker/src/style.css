@@ -1330,6 +1330,7 @@ progress {
 .habit-row-heading small { display:block; color:var(--muted); font-size:12px; margin-top:3px; }
 .habit-row-heading > div { overflow-wrap:anywhere; }
 .row-actions { flex-wrap:wrap; }
+.row-more { margin:0; }
 .dashboard-main .habit-row .card-action { width:auto; margin:0; padding:6px 12px; min-height:34px; }
 .row-actions .text-button, .row-more > summary { padding:6px 10px; min-height:34px; font-size:12px; border:1px solid var(--border); border-radius:7px; cursor:pointer; }
 .row-more > div { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
@@ -1344,4 +1345,24 @@ progress {
   .habit-rows, .item-target-grid { grid-template-columns:1fr; }
   .dashboard-main .habit-row button, .row-more > summary { min-height:40px; }
   .habit-panel > summary { padding:12px 10px; }
+}
+
+/* Boundaries use the available width, with the outcome controls in one aligned row. */
+.boundary-rows { padding:0 10px 10px; display:grid; gap:8px; }
+.boundary-row { display:flex; align-items:center; justify-content:space-between; gap:16px; background:var(--soft); border:0; }
+.boundary-row .habit-row-heading { min-width:0; }
+.boundary-row .boundary-status { color:var(--green); }
+.boundary-actions { justify-content:flex-end; }
+.row-actions > button, .row-more > summary { display:inline-flex; align-items:center; justify-content:center; min-height:34px; line-height:20px; padding:6px 10px; font-size:12px; margin:0; }
+.row-more > summary::before { content:'+'; margin-right:6px; }
+.row-more[open] > summary::before { content:'?'; }
+.row-more > summary::-webkit-details-marker { display:none; }
+.row-more > div { max-width:280px; }
+.row-more > div small { flex-basis:100%; line-height:1.5; }
+@media(max-width:900px) {
+  .boundary-row { align-items:flex-start; flex-direction:column; gap:8px; }
+  .boundary-actions { justify-content:flex-start; }
+}
+@media(max-width:760px) {
+  .row-actions > button, .row-more > summary { min-height:40px; }
 }
