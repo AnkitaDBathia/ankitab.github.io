@@ -171,7 +171,7 @@ export function notify(message, undo) {
   toast.className = "toast";
   toast.setAttribute("role", "status");
   toast.textContent = message;
-  const timeout = setTimeout(() => toast.remove(), 4000);
+  const timeout = setTimeout(() => toast.remove(), 3000);
   if (undo) {
     const action = document.createElement("button");
     action.type = "button";

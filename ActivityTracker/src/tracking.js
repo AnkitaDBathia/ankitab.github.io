@@ -64,7 +64,7 @@ export function quickAmounts(goal, remaining = goal) {
     suggested = suggested.filter(n => n < remaining).slice(0, 2);
     suggested.push(remaining);
   }
-  return [...new Set([1, ...suggested])].sort((a, b) => a - b);
+  return [...new Set([1, ...suggested, goal])].sort((a, b) => a - b);
 }
 
 export function quickQuantityValues(activity, amount = 1) {

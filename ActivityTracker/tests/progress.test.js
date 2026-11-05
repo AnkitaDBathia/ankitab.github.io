@@ -2,14 +2,14 @@ import { it } from "node:test";
 import assert from "node:assert/strict";
 import { Window } from "happy-dom";
 import { notify } from "../src/ui.js";
-it("dismisses success feedback after four seconds, including messages with Undo", async (t) => {
+it("dismisses success feedback after three seconds, including messages with Undo", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const window = new Window();
   globalThis.document = window.document;
   try {
     for (const undo of [undefined, async () => {}]) {
       notify("Saved", undo);
-      t.mock.timers.tick(3999);
+      t.mock.timers.tick(2999);
       assert.ok(document.querySelector(".toast"));
       t.mock.timers.tick(1);
       assert.equal(document.querySelector(".toast"), null);
@@ -28,11 +28,11 @@ it("does not dismiss a pending or failed Undo when its original timeout expires"
     let fail;
     notify("Saved", () => new Promise((resolve, reject) => { fail = reject; }));
     const pending = document.querySelector(".toast button").onclick();
-    t.mock.timers.tick(4000);
+    t.mock.timers.tick(3000);
     assert.ok(document.querySelector(".toast"));
     fail(new Error("Offline"));
     await pending;
-    t.mock.timers.tick(4000);
+    t.mock.timers.tick(3000);
     assert.equal(document.querySelector(".toast button").textContent, "Retry undo");
   } finally {
     t.mock.timers.reset();
@@ -217,15 +217,19 @@ it("quick counter adds exactly one while preserving valid defaults", async () =>
 
 it("derives compact target amounts and a remaining shortcut", async () => {
   const {quickAmounts, quickQuantityValues} = await import("../src/tracking.js");
-  assert.deepEqual(quickAmounts(9), [1,3]);
+  assert.deepEqual(quickAmounts(9), [1,3,9]);
   assert.deepEqual(quickAmounts(27), [1,9,18,27]);
-  assert.deepEqual(quickAmounts(108), [1,12,24,36]);
-  assert.deepEqual(quickAmounts(108,5), [1,5]);
+  assert.deepEqual(quickAmounts(108), [1,12,24,36,108]);
+  assert.deepEqual(quickAmounts(108,5), [1,5,108]);
   assert.deepEqual(quickAmounts(27,0), [1,9,18,27]);
   assert.deepEqual(quickAmounts(1), [1]);
+  assert.deepEqual(quickAmounts(27,17), [1,9,17,27]);
+  for (const goal of [9,27,108]) {
+    for (const remaining of [goal,5,0,-10]) assert.ok(quickAmounts(goal,remaining).includes(goal));
+  }
   for (const goal of [2,7,13,50,101,1000]) {
     const amounts = quickAmounts(goal);
-    assert.ok(amounts.length <= 4);
+    assert.ok(amounts.length <= 5);
     assert.ok(amounts.every(n=> n > 0 && Number.isInteger(n)));
     assert.equal(new Set(amounts).size, amounts.length);
   }
