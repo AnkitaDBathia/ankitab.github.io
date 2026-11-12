@@ -1366,3 +1366,9 @@ progress {
 @media(max-width:760px) {
   .row-actions > button, .row-more > summary { min-height:40px; }
 }
+
+.balance-counter { border-top:1px solid var(--border); margin-top:8px; padding-top:8px; font-size:12px; }
+.balance-counter > div { display:flex; gap:6px; margin-top:6px; }
+.balance-counter details { margin:4px 0 0; }
+.balance-counter summary { min-height:30px; padding:6px 0; }
+.balance-counter details[open] { max-height:220px; overflow:auto; }

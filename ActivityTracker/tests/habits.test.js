@@ -4,7 +4,7 @@ import { Window } from 'happy-dom';
 import { habitSummary, measurementTotals, weekStart, dayConfiguration } from '../src/habits.js';
 import { activityForm } from '../src/forms.js';
 import { outcomeForm, boundaryCard, reflectionForm } from '../src/habit-ui.js';
-import { renderView } from '../src/views.js';
+import { balancePanel, renderView } from '../src/views.js';
 import { createGuestStore } from '../src/guest.js';
 import { localDay, onDay } from '../src/lib.js';
 import { searchLogs } from '../src/journal.js';
@@ -177,4 +177,17 @@ it('renders compact boundary controls directly and keeps guidance under More',()
     document.body.innerHTML=boundaryCard({...a,archived:true},data,days[0],true);
     assert.equal(document.querySelector('[data-action="habit-outcome"]'),null);
   }
+});
+
+it('shows lifetime and available quantities with amount-only usage and dated history',()=>{
+ const a={...habit(),balance_enabled:true};
+ const data=dataFor(a,[log(a,days[0],{values:{q:1000}})]);
+ data.usages=[log(a,days[1],{entry_type:'used',values:{q:300}})];
+ document.body.innerHTML=balancePanel(a,null,data);
+ assert.match(document.body.textContent,/Available: 700/);
+ assert.match(document.body.textContent,/Lifetime: 1000/);
+ assert.match(document.body.textContent,/Used 300/);
+ assert.ok(document.querySelector('[data-action="balance-use"]'));
+ assert.equal(document.querySelector('details').open,false);
+ assert.equal(habitSummary(data,a,days).actual,1000);
 });

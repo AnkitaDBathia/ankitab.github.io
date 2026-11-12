@@ -235,3 +235,7 @@ Activity cards display target progress and remaining amounts. Completed activiti
 ### Favourites, search, and mood notes
 
 Run `ActivityTracker/supabase/migrations/202610290002_favourites_mood.sql` once before publishing these features. Star mantras to sort them first; History has an optional Search panel searching all dates. Yoga and meditation entry forms offer optional mood and note fields. After one-tap completion, Mood edits that same entry. Voice notes use browser speech recognition when supported, with English/Hindi/Gujarati choices. The browser may send audio to its transcription service; the app stores only the editable resulting text. Typing is always available.
+
+### Optional quantity balances
+
+Before deploying the balance frontend, run `ActivityTracker/supabase/migrations/202611120001_balances.sql` once in Supabase SQL Editor. No new tables are created. In a quantity habit configuration (or Edit on an individual mantra/item), enable **Track available balance**. Existing recorded quantities are included automatically. Quick-add still records performed quantities; **Add other** accepts an amount and **Use** deducts an amount immediately with no reason/date fields. Usage is dated now and never counts towards daily goals or reports. Balance history shows both kinds of entries. Usage cannot be edited, deleted or reversed. Corrections to performed entries cannot leave a negative balance. Balance transactions require sign-in; guest mode is not supported. Historical quantities should use the same measurement unit before enabling a balance.

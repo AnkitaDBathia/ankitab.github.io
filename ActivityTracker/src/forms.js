@@ -128,6 +128,7 @@ export function itemForm(activity, save, item) {
    ],
    item?.goal_period ?? "total",
  )}
+${checkbox("Track available balance", "balance_enabled", item?.balance_enabled)}
  <button class="primary wide">Save item</button>`,
     async (form) =>
       save(
@@ -139,6 +140,7 @@ export function itemForm(activity, save, item) {
           status: valueOf(form, "status") || "Not Started",
           goal: numberOrNull(valueOf(form, "goal")),
           goal_period: valueOf(form, "goal_period"),
+          balance_enabled: checked(form,"balance_enabled"),
         },
         item?.id,
       ),
@@ -179,7 +181,7 @@ export function buildActivityForm(save, activity) {
       originalMode,
     )}
     <p class="muted" data-tracking-help></p>
-    ${input("Daily target (optional)", "daily_goal", activity?.daily_goal, "number", 'min="0.01" step="any"')}
+    ${checkbox("Track available balance (quantity habits only; for items enable it on each item)", "balance_enabled", activity?.balance_enabled)}${input("Daily target (optional)", "daily_goal", activity?.daily_goal, "number", 'min="0.01" step="any"')}
     <div data-quantity>${input("What are you counting?", "unit", activity?.unit ?? "", "text", 'placeholder="e.g. glasses"')}${input("Quick-add amounts", "presets", activity?.presets?.join(", ") || "1, 2, 5", "text", 'placeholder="1, 2, 5"')}</div>
     <div data-custom>${button("Edit custom fields", "advanced-editor")}<p class="muted">Your existing fields are kept unless you choose another tracking style.</p></div>
     <details><summary>More options</summary>${textarea("Description (optional)", "description", activity?.description)}${select(
@@ -215,6 +217,7 @@ export function buildActivityForm(save, activity) {
         icon: valueOf(form, "icon"),
         position: Number(valueOf(form, "position")),
         daily_goal: numberOrNull(valueOf(form, "daily_goal")),
+          balance_enabled: checked(form,"balance_enabled"),
         item_based: checked(form, "item_based"),
         fields,
         unit: mode === "done" ? "" : valueOf(form, "unit"),
@@ -262,6 +265,7 @@ export function buildActivityForm(save, activity) {
         icon: valueOf(form, "icon"),
         position: Number(valueOf(form, "position")),
         daily_goal: numberOrNull(valueOf(form, "daily_goal")),
+          balance_enabled: checked(form,"balance_enabled"),
         item_based: checked(form, "item_based"),
         unit: valueOf(form, "unit"),
         fields: activity?.fields ?? [blankField()],
@@ -290,7 +294,7 @@ export function advancedActivityForm(save, activity) {
  )}${input("Unit (e.g. steps)", "unit", activity?.unit)}</div>
  <div class="two">${input("Display order", "position", activity?.position ?? 5, "number", "required")}${input("Quick presets (comma separated)", "presets", activity?.presets.join(", ") ?? "1, 5, 10")}</div>
  ${checkbox("Uses individual items (books, mantras, etc.)", "item_based", activity?.item_based)}
- ${input("Daily target (optional)", "daily_goal", activity?.daily_goal, "number", 'min="0.01" step="any"')}<h3>Entry fields</h3><p class="muted">Changes apply to new entries. Historical records keep their original fields. Remove and recreate a field to change its type.</p>
+ ${checkbox("Track available balance (quantity habits only; for items enable it on each item)", "balance_enabled", activity?.balance_enabled)}${input("Daily target (optional)", "daily_goal", activity?.daily_goal, "number", 'min="0.01" step="any"')}<h3>Entry fields</h3><p class="muted">Changes apply to new entries. Historical records keep their original fields. Remove and recreate a field to change its type.</p>
  <div data-fields></div>${button("+ Add field", "add-field")}
  ${select("Field to total in summaries", "quantity", [], activity?.quantity_field_id)}
  <button class="primary wide" type="submit">Save activity</button>`,
@@ -303,6 +307,7 @@ export function advancedActivityForm(save, activity) {
         unit: valueOf(form, "unit"),
         position: Number(valueOf(form, "position")),
         daily_goal: numberOrNull(valueOf(form, "daily_goal")),
+          balance_enabled: checked(form,"balance_enabled"),
         item_based: checked(form, "item_based"),
         fields: fields.map((f, i) => ({ ...f, position: i })),
         presets: valueOf(form, "presets").trim()

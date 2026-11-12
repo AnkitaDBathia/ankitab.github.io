@@ -41,15 +41,26 @@ export function activityAction(activity, daily, cls = "primary", compact = false
 function favouriteButton(item) {
   return `<button type="button" class="text-button" data-action="favourite-item" data-id="${h(item.id)}" aria-pressed="${!!item.favourite}" aria-label="${item.favourite ? "Unpin" : "Pin"} ${h(item.name)}">${item.favourite ? "&#9733;" : "&#9734;"}</button>`;
 }
+export function balancePanel(activity,item,data) {
+  if (!(item??activity).balance_enabled || !activity.quantity_field_id) return '';
+  const matches=l=>l.activity_id===activity.id && (l.item_id??null)===(item?.id??null);
+  const deposits=data.logs.filter(matches), usages=(data.usages??[]).filter(matches);
+  const amount=l=>Number(l.values[l.quantity_field_id]??0);
+  const lifetime=deposits.reduce((s,l)=>s+amount(l),0),available=lifetime-usages.reduce((s,l)=>s+amount(l),0);
+  const id=item?.id??activity.id;
+  return `<div class="balance-counter"><strong>Available: ${h(available)} &middot; Lifetime: ${h(lifetime)}</strong><div>${!activity.archived&&!item?.archived?`<button type="button" data-action="balance-add" data-id="${h(id)}">Add other</button><button type="button" data-action="balance-use" data-id="${h(id)}" ${available<=0?'disabled':''}>Use</button>`:''}</div><details><summary>Balance history</summary>${[...deposits,...usages].sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at)).map(l=>`<div>${h(localDay(l.occurred_at,data.settings.timezone))} &middot; ${l.entry_type==='used'?'Used':'Added'} ${h(amount(l))}</div>`).join('')||'<small>No transactions yet</small>'}</details></div>`;
+}
+
 export function targetSummary(activity, item, data, day, showLog = false) {
+  const bank=balancePanel(activity,item,data);
   const canLog=!activity.archived && !item?.archived;
   if(Array.isArray(data.revisions)) {
     const cfg=dayConfiguration(data,activity,day);
-    if(!cfg) return item||activity.daily_goal?'<small class="muted">Historical target unavailable</small>':'';
+    if(!cfg) return bank + (item||activity.daily_goal?'<small class="muted">Historical target unavailable</small>':'');
     activity={...activity,...cfg,archived:activity.archived};
     if(item) {
       const previous=cfg.items?.find(i=>i.id===item.id);
-      if(!previous) return '';
+      if(!previous) return bank;
       item={...item,...previous,archived:!canLog};
     }
   }
@@ -60,14 +71,14 @@ export function targetSummary(activity, item, data, day, showLog = false) {
     day,
     data.settings.timezone,
   );
-  if (!progress) return "";
-  return `<div class="target-summary"><small>${showLog && item && activity.seed_key === "mantra" ? favouriteButton(item) : ""}${item ? `${h(item.name)} - ` : ""}${progress.daily ? "Daily" : "Overall"} target: ${progress.value.toLocaleString()} / ${progress.goal.toLocaleString()} ${h(activity.quantity_field_id ? activity.unit : "entries")}</small><div class="target-action"><strong>${h(progress.text)}</strong>${showLog && item && !item.archived && !activity.archived ? `<div class="quick-amounts">${quickAmounts(progress.goal, progress.remaining).map(amount => `<button type="button" class="target-log" data-action="increment-item" data-id="${h(item.id)}" data-amount="${amount}" aria-label="Add ${amount} to ${h(item.name)}">+${amount}${amount === progress.remaining ? " to finish" : ""}</button>`).join("")}</div>` : ""}</div><progress aria-label="${h(item?.name ?? activity.name)} target" max="${progress.goal}" value="${Math.max(0, Math.min(progress.goal, progress.value))}"></progress></div>`;
+  if (!progress) return bank ? `<div class="target-summary"><small>${h(item?.name??activity.name)}</small>${bank}</div>` : "";
+  return `<div class="target-summary"><small>${showLog && item && activity.seed_key === "mantra" ? favouriteButton(item) : ""}${item ? `${h(item.name)} - ` : ""}${progress.daily ? "Daily" : "Overall"} target: ${progress.value.toLocaleString()} / ${progress.goal.toLocaleString()} ${h(activity.quantity_field_id ? activity.unit : "entries")}</small><div class="target-action"><strong>${h(progress.text)}</strong>${showLog && item && !item.archived && !activity.archived ? `<div class="quick-amounts">${quickAmounts(progress.goal, progress.remaining).map(amount => `<button type="button" class="target-log" data-action="increment-item" data-id="${h(item.id)}" data-amount="${amount}" aria-label="Add ${amount} to ${h(item.name)}">+${amount}${amount === progress.remaining ? " to finish" : ""}</button>`).join("")}</div>` : ""}</div><progress aria-label="${h(item?.name ?? activity.name)} target" max="${progress.goal}" value="${Math.max(0, Math.min(progress.goal, progress.value))}"></progress>${bank}</div>`;
 }
 function cardTargets(activity, data, day) {
   return (
     targetSummary(activity, null, data, day) +
     favouritesFirst(data.items)
-      .filter((i) => i.activity_id === activity.id && !i.archived && i.goal)
+      .filter((i) => i.activity_id === activity.id && !i.archived && (i.goal || i.balance_enabled))
       .map((i) => targetSummary(activity, i, data, day, true))
       .join("")
   );

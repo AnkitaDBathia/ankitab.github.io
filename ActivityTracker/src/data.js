@@ -39,7 +39,8 @@ export async function loadJourney() {
     activities: results[0].data,
     items: results[1].data,
     settings: results[2].data,
-    logs,
+    logs: logs.filter(l=>l.entry_type!=="used"),
+    usages: logs.filter(l=>l.entry_type==="used"),
   };
 }
 export async function saveRow(table, row, id) {

@@ -316,6 +316,29 @@ root.addEventListener("click", async (e) => {
     if (action === "create-activity" || action === "configure")
       activityForm((row, id) => mutate("activities", row, id), activity);
     if (action === "entry") openEntry(activity);
+    if (action === "balance-add" || action === "balance-use") {
+      const parent=item?data.activities.find(a=>a.id===item.activity_id):activity;
+      const use=action==='balance-use', requestId=crypto.randomUUID(), owner=session?.user.id;
+      const rows=data.logs.filter(l=>l.activity_id===parent.id&&(l.item_id??null)===(item?.id??null));
+      const spent=(data.usages??[]).filter(l=>l.activity_id===parent.id&&(l.item_id??null)===(item?.id??null));
+      const sum=rows=>rows.reduce((n,l)=>n+Number(l.values[l.quantity_field_id]??0),0);
+      const available=sum(rows)-sum(spent);
+      if(guestMode) throw new Error('Balance transactions require signing in.');
+      return sheet(use?'Use balance':'Add quantity', `${use?'Available: '+available:''}<label>Amount<input name="amount" type="number" min="0.000001" step="any" required autofocus></label><button class="primary">Confirm</button>`,async form=>{
+        if(session?.user.id!==owner) throw new Error('Account changed; reopen the counter.');
+        const amount=Number(valueOf(form,'amount'));
+        if(!Number.isFinite(amount)||amount<=0) throw new Error('Enter a positive amount.');
+        if(use&&amount>available) throw new Error('Amount exceeds available balance.');
+        const values=use?{[parent.quantity_field_id]:amount}:quickQuantityValues(parent,amount);
+        if(!values) throw new Error('Use the full logging form to complete required fields.');
+        if(!use) { await addEntry(parent,values,item?.id??null); return; }
+        writeVersion++;
+        await saveRow('activity_logs',{id:requestId,user_id:session.user.id,activity_id:parent.id,item_id:item?.id??null,values,entry_type:'used',occurred_at:new Date().toISOString()});
+        if(session?.user.id!==owner) return;
+        await refresh();
+        notify('Balance used.');
+      });
+    }
     if (action === "increment-item") {
       const parent = data.activities.find(a => a.id === item?.activity_id);
       const values = quickQuantityValues(parent, Number(target.dataset.amount ?? 1));

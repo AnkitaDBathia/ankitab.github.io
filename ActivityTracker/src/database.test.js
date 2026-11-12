@@ -47,6 +47,7 @@ beforeAll(
     await db.exec("select initialize_journey(); insert into activity_logs(id,user_id,activity_id,values,occurred_at) select '33333333-3333-4333-8333-333333333333',user_id,id,'{\"quantity\":7}','2025-01-01T10:00:00Z' from activities where seed_key='water'; reset role;");
     await db.exec(readFileSync(new URL("../supabase/migrations/202611020001_unified_habits.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("../supabase/migrations/202611020002_account_admins.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("../supabase/migrations/202611120001_balances.sql", import.meta.url), "utf8"));
     await asUser(alice);
     await db.exec("select public.initialize_journey();");
     water = (await db.query("select id from activities where seed_key='water'"))
@@ -346,4 +347,31 @@ describe("Real PostgreSQL migration, validation and RLS", () => {
     const backdated=(await db.query("insert into activity_logs(user_id,activity_id,values,occurred_at) values($1,$2,'{\"pages\":3}','2020-01-01T12:00:00Z') returning *",[alice,a.id])).rows[0];
     assert.equal(backdated.habit_snapshot,null);assert.equal(backdated.values.pages,3);
   });
+});
+
+it('protects balances and keeps usage separate from performed quantities',async()=>{
+ await asUser(alice);
+ const a=(await db.query("insert into activities(user_id,name,fields,quantity_field_id,unit,balance_enabled) values($1,'Balance test',$2,'q','chants',true) returning id",[alice,JSON.stringify([{id:'q',type:'number',label:'Count',required:true,min:0,max:null,options:[]}])])).rows[0].id;
+ const add=async(amount,type='performed')=>(await db.query("insert into activity_logs(user_id,activity_id,values,entry_type) values($1,$2,$3,$4) returning id",[alice,a,JSON.stringify({q:amount}),type])).rows[0].id;
+ const deposit=await add(1000); const use=await add(300,'used');
+ const rows=(await db.query("select entry_type,sum((values->>'q')::numeric) as total from activity_logs where activity_id=$1 group by entry_type",[a])).rows;
+ assert.equal(Number(rows.find(r=>r.entry_type==='performed').total),1000);
+ assert.equal(Number(rows.find(r=>r.entry_type==='used').total),300);
+ await assert.rejects(add(701,'used'),/balance/);
+ await assert.rejects(add(0,'used'),/positive/);
+ await assert.rejects(db.query('delete from activity_logs where id=$1',[deposit]),/balance/);
+ await assert.rejects(db.query('delete from activity_logs where id=$1',[use]),/cannot/);
+ await assert.rejects(db.query("update activity_logs set values='{\"q\":200}' where id=$1",[deposit]),/balance/);
+ await asUser(bob);
+ assert.equal((await db.query('select id from activity_logs where activity_id=$1',[a])).rows.length,0);
+});
+
+it('keeps item balances independent within the same activity',async()=>{
+ await asUser(alice);
+ const a=(await db.query("insert into activities(user_id,name,item_based,fields,quantity_field_id,unit) values($1,'Counters',true,$2,'q','chants') returning id",[alice,[{id:'q',type:'number',label:'Count',required:true,options:[],min:0,max:null}]])).rows[0].id;
+ const items=(await db.query("insert into activity_items(user_id,activity_id,name,balance_enabled) values($1,$2,'One',true),($1,$2,'Two',true) returning id",[alice,a])).rows;
+ await db.query("insert into activity_logs(user_id,activity_id,item_id,values) values($1,$2,$3,'{\"q\":9}')",[alice,a,items[0].id]);
+ await assert.rejects(db.query("insert into activity_logs(user_id,activity_id,item_id,values,entry_type) values($1,$2,$3,'{\"q\":1}','used')",[alice,a,items[1].id]),/balance/);
+ await db.query("insert into activity_logs(user_id,activity_id,item_id,values,entry_type) values($1,$2,$3,'{\"q\":9}','used')",[alice,a,items[0].id]);
+ await assert.rejects(db.query("update activities set unit='minutes' where id=$1",[a]),/measurement/);
 });
