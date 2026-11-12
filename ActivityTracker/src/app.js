@@ -16,7 +16,7 @@ import { deleteLog, loadJourney, saveRow } from "./data.js";
 import { completed, onDay, localDay, moveDay, defaultValues, validateFields } from "./lib.js";
 import { activityForm, entryForm, itemForm } from "./forms.js";
 import { authView, renderView } from "./views.js";
-import { notify, sheet, valueOf } from "./ui.js";
+import { notify, sheet, valueOf, input, h } from "./ui.js";
 import { createResumeSync } from "./sync.js";
 
 const root = document.getElementById("root");
@@ -324,7 +324,7 @@ root.addEventListener("click", async (e) => {
       const sum=rows=>rows.reduce((n,l)=>n+Number(l.values[l.quantity_field_id]??0),0);
       const available=sum(rows)-sum(spent);
       if(guestMode) throw new Error('Balance transactions require signing in.');
-      return sheet(use?'Use balance':'Add quantity', `${use?'Available: '+available:''}<label>Amount<input name="amount" type="number" min="0.000001" step="any" required autofocus></label><button class="primary">Confirm</button>`,async form=>{
+      return sheet(`${use?'Use':'Add'} ${item?.name??parent.name}`, `<div class="balance-form"><div class="balance-available"><span>Available balance</span><strong>${h(available)} <small>${h(parent.unit)}</small></strong></div>${input(`${parent.unit || 'Quantity'} to ${use?'use':'add'}`, 'amount', '', 'number', `min="0.000001" step="any" required autofocus placeholder="Enter amount" ${use?`max="${available}"`:''}`)}<p class="muted">${use?'Deducts from your available balance. Lifetime total stays unchanged.':'Adds to your daily progress and available balance.'}</p><button class="primary wide" type="submit">${use?'Use':'Add'} ${h(parent.unit || 'quantity')}</button></div>`,async form=>{
         if(session?.user.id!==owner) throw new Error('Account changed; reopen the counter.');
         const amount=Number(valueOf(form,'amount'));
         if(!Number.isFinite(amount)||amount<=0) throw new Error('Enter a positive amount.');

@@ -1372,3 +1372,11 @@ progress {
 .balance-counter details { margin:4px 0 0; }
 .balance-counter summary { min-height:30px; padding:6px 0; }
 .balance-counter details[open] { max-height:220px; overflow:auto; }
+
+.balance-form { display:grid; gap:16px; }
+.balance-available { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 14px; border-radius:10px; background:var(--soft); }
+.balance-available > span { font-size:13px; color:var(--muted); }
+.balance-available strong { font-size:22px; }
+.balance-available small { font-size:13px; font-weight:400; }
+.balance-form .field, .balance-form p { margin:0; }
+.balance-form p { font-size:12px; line-height:1.5; }
