@@ -1380,3 +1380,23 @@ progress {
 .balance-available small { font-size:13px; font-weight:400; }
 .balance-form .field, .balance-form p { margin:0; }
 .balance-form p { font-size:12px; line-height:1.5; }
+
+.insight-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.insight-card { min-width:0; padding:14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+.insight-card header { display:flex; align-items:center; gap:8px; font-weight:600; }
+.insight-card .activity-icon { width:28px; height:28px; }
+.insight-total { margin:8px 0; font-size:12px; color:var(--muted); }
+.insight-total strong { font-size:24px; color:var(--text); }
+.insight-bars { height:86px; display:flex; gap:3px; border-bottom:1px solid var(--border); }
+.insight-bars > div { flex:1; min-width:0; display:flex; align-items:flex-end; }
+.insight-bars span { display:block; width:100%; background:var(--green); border-radius:3px 3px 0 0; }
+.insight-axis, .insight-overview { display:flex; justify-content:space-between; gap:12px; }
+.insight-axis { font-size:10px; color:var(--muted); margin:5px 0 8px; }
+.insight-overview { flex-wrap:wrap; font-size:13px; }
+.insight-note { font-size:12px; margin:8px 0 12px; }
+.insight-card details { margin-top:6px; }
+.insight-card summary { min-height:30px; padding:6px 0; }
+.insight-values { max-height:220px; overflow:auto; }
+.insight-records { margin-top:12px; }
+@media(max-width:1100px) { .insight-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:620px) { .insight-grid { grid-template-columns:1fr; } }

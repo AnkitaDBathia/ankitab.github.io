@@ -191,3 +191,18 @@ it('shows lifetime and available quantities with amount-only usage and dated his
  assert.equal(document.querySelector('details').open,false);
  assert.equal(habitSummary(data,a,days).actual,1000);
 });
+
+it('renders all habits and refreshable week month year chart ranges',()=>{
+ const a=habit(), other={...habit(),id:'b',name:'Walking'};
+ const data=dataFor(a,[log(a,'2026-10-01'),log(a,'2026-10-25')]);data.activities.push(other);
+ for(const [period,start,bars] of [[7,'2026-10-19',7],[0,'2026-10-01',25],[365,'2026-01-01',10]]) {
+  document.body.innerHTML=renderView(data,{page:'reports',day:'2026-10-25',period},'');
+  assert.equal(document.querySelectorAll('.insight-card').length,2);
+  assert.equal(document.querySelectorAll('.insight-card:first-child .insight-bars > div').length,bars);
+  assert.equal(document.querySelector('select[name="period"]').dataset.change,'period');
+  assert.equal(document.querySelector('select[name="period"] option[selected]').value,String(period));
+  assert.ok(document.body.textContent.includes(start));
+  assert.equal(document.querySelector('.insight-records').open,false);
+  assert.ok(document.querySelector('.insight-card').textContent.includes(period===7?'30':'60'));
+ }
+});

@@ -1,5 +1,5 @@
 import { typeOf, outcomeLabel, habitDay, configurationAt, dayConfiguration, measurementTotals, scheduled } from "./habits.js";
-import { boundaryCard, consistencyView } from "./habit-ui.js";
+import { boundaryCard } from "./habit-ui.js";
 import { supportsMood, favouritesFirst, searchLogs } from "./journal.js";
 import {
   completionOnly,
@@ -10,7 +10,7 @@ import {
 } from "./tracking.js";
 import { guestMode as defaultGuestMode } from "./mode.js";
 import { formatInTimeZone } from "date-fns-tz";
-import { completed, localDay, moveDay, onDay, total } from "./lib.js";
+import { completed, localDay, moveDay, total } from "./lib.js";
 import { h, icon, button, input, select } from "./ui.js";
 const empty =
   '<div class="empty"><h3>A fresh page in your journey</h3><p>No entries here yet. Every small step counts.</p></div>';
@@ -209,53 +209,31 @@ export function renderView(data, state, email, guestMode = defaultGuestMode) {
   return `<div class="app"><aside class="sidebar"><a class="brand" href="#dashboard"><span>❧</span> My Journey</a><div class="sidebar-caption">YOUR EVERYDAY, WITH INTENTION</div><nav>${nav.map(([id, label, symbol]) => `<a href="#${id}" class="${page === id || (id === "activities" && detail) ? "selected" : ""}"><span aria-hidden="true">${symbol}</span>${label}</a>`).join("")}</nav><div class="sidebar-bottom"><div class="daily-note">❧<p>Little by little,<br>a little becomes a lot.</p></div><div class="profile"><span class="avatar">${h(data.settings.display_name[0])}</span><div class="grow"><strong>${h(data.settings.display_name)}</strong><small>One day at a time</small></div>${guestMode ? "" : button("Sign out", "signout")}</div></div></aside><div class="workspace"><header class="topbar"><span>YOUR PERSONAL JOURNAL</span><div><span class="private-dot"></span>${guestMode ? "Guest journal" : "Private space"} ${button("Refresh", "refresh")}${guestMode ? "" : button("Sign out", "signout", "", "mobile-signout")}</div></header><main class="${page === "dashboard" ? "dashboard-main" : ""}">${guestMode ? `<p class="guest-notice" role="status">Temporary guest mode: entries are saved only in this browser, not Supabase. Clearing browser data removes them. Anyone using this browser profile can access them.</p>` : ""}<div class="error-banner" role="alert" hidden data-error></div><div class="page-heading"><div><span class="eyebrow">MAKE SPACE FOR YOURSELF</span><h1>${h(detail?.name ?? titles[page] ?? "Your journey")}</h1><p>${h(detail?.description ?? (page === "dashboard" ? formatInTimeZone(`${day}T12:00:00Z`, "UTC", "EEEE, MMMM d, yyyy") : "One small step at a time."))}</p></div>${page === "dashboard" || page === "history" || detail ? dates : ""}</div>${day !== today && (page === "dashboard" || detail || page === "history") ? `<p class="date-notice" role="status">Viewing ${h(day)} - entries will be saved for this date. ${button("Back to today", "today")}</p>` : ""}${content}<footer>Made for your everyday. ❧ One small step at a time.</footer></main></div></div>`;
 }
 function reports(data, state) {
-  const period = state.period ?? 7,
-    end = [state.reportEnd ?? state.day,localDay(new Date(),data.settings.timezone)].sort()[0],
-    id = state.reportActivity || data.activities[0]?.id;
-  const a = data.activities.find((a) => a.id === id);
-  const length=period===0?Number(end.slice(8)):period;
-  const days = Array.from({ length }, (_, i) =>
-    moveDay(end, i - length + 1),
-  );
-  const logs = data.logs.filter((l) =>
-    days.includes(habitDay(l, data.settings.timezone)),
-  );
-  const measured=a?measurementTotals(logs,a):[];
-  const useQuantity=a?.quantity_field_id&&measured.length<=1;
-  const unit=typeOf(a)==='maintain'?'achieved boundaries':typeOf(a)==='replace'?'successful replacements':useQuantity?(measured[0]?.unit??a.unit):'recorded entries';
-  const chart = days.map((date) => ({
-    date,
-    value: a && typeOf(a)!=="build" ? onDay(logs,date,data.settings.timezone).filter(l=>l.activity_id===id&&["achieved","replaced"].includes(l.outcome)).length : useQuantity
-      ? total(onDay(logs, date, data.settings.timezone), id)
-      : onDay(logs, date, data.settings.timezone).filter(
-          (l) => l.activity_id === id,
-        ).length,
-  }));
-  const maximum = Math.max(1, ...chart.map((p) => p.value));
-  function actual(rows,activity) {
-    const own=rows.filter(l=>l.activity_id===activity.id);
-    const amounts=measurementTotals(own,activity).map(m=>`${m.value} ${m.unit}`);
-    if(typeOf(activity)==='maintain') return `${own.filter(l=>l.outcome==='achieved').length} achieved; ${own.filter(l=>l.outcome==='not_achieved').length} not achieved; ${own.filter(l=>l.outcome==='not_applicable').length} not applicable`;
-    if(typeOf(activity)==='replace') amounts.unshift(`${own.filter(l=>l.outcome==='replaced').length} replacements; ${own.filter(l=>l.outcome==='not_replaced').length} incomplete; ${own.filter(l=>l.outcome==='not_applicable').length} not applicable`);
-    return amounts.join(' / ')||`${own.length} entries`;
-  }
-  return `<div class="report-controls">${select(
-    "Period",
-    "period",
-    [
-      [7, "Last 7 days"],
-      [30, "Last 30 days"],
-      [0, "Calendar month to selected date"],
-    ],
-    period,
-    'data-change="period"',
-  )}${input("Ending on", "report-end", end, "date", 'data-change="report-end"')}${select(
-    "Activity",
-    "report-activity",
-    data.activities.map((a) => [a.id, a.name]),
-    id,
-    'data-change="report-activity"',
-  )}</div>${consistencyView(data,days)}<section class="panel padded"><h2>${h(a?.name ?? "Activity")} over time</h2><p>${h(days[0])} – ${h(end)} · ${h(unit)}</p><div class="native-chart" role="img" aria-label="Daily totals; exact values in the table below">${chart.map((p) => `<div class="chart-column" title="${p.date}: ${p.value}"><span style="height:${Math.max(0, (p.value / maximum) * 100)}%"></span><small>${p.date.slice(8)}</small></div>`).join("")}</div><details><summary>View chart data</summary><table><thead><tr><th>Date</th><th>${h(unit)}</th></tr></thead><tbody>${chart.map((p) => `<tr><td>${p.date}</td><td>${p.value}</td></tr>`).join("")}</tbody></table></details></section><div class="section-heading"><h2>Actual records</h2></div><section class="panel table-scroll"><table><thead><tr><th>Habit</th><th>This period</th><th>All time</th></tr></thead><tbody>${data.activities.map((a) => `<tr><td><a href="#activity/${h(a.id)}">${h(a.name)}</a></td><td>${h(actual(logs,a))}</td><td>${h(actual(data.logs,a))}</td></tr>`).join("")}</tbody></table></section><div class="section-heading"><h2>Optional weekly reflection</h2>${button("Reflect on this week","reflection")}</div>`;
+  const period=state.period??7;
+  const end=[state.reportEnd??state.day,localDay(new Date(),data.settings.timezone)].sort()[0];
+  const start=period===365?`${end.slice(0,4)}-01-01`:period===0?`${end.slice(0,7)}-01`:moveDay(end,1-period);
+  const days=[];
+  for(let day=start;day<=end;day=moveDay(day,1)) days.push(day);
+  const logs=data.logs.filter(l=>l.entry_type!=='used'&&habitDay(l,data.settings.timezone)>=start&&habitDay(l,data.settings.timezone)<=end);
+  const activities=data.activities.filter(a=>!a.archived||logs.some(l=>l.activity_id===a.id));
+  const bucket=day=>period===365?day.slice(0,7):day;
+  const buckets=[...new Set(days.map(bucket))];
+  const practiced=new Set(logs.map(l=>l.activity_id)).size;
+  const cards=activities.map(a=>{
+    const own=logs.filter(l=>l.activity_id===a.id), type=typeOf(a);
+    const measured=measurementTotals(own,a), quantity=a.quantity_field_id&&measured.length<=1;
+    const done=!!quickDoneValues(a);
+    const unit=type==='maintain'?'achieved boundaries':type==='replace'?'successful replacements':done?'completed days':quantity?(measured[0]?.unit??a.unit):'entries';
+    const chart=buckets.map(key=>{
+      const rows=own.filter(l=>bucket(habitDay(l,data.settings.timezone))===key);
+      const value=type!=='build'?rows.filter(l=>['achieved','replaced'].includes(l.outcome)).length:done?new Set(rows.filter(l=>completed([l],a.id)).map(l=>habitDay(l,data.settings.timezone))).size:quantity?total(rows,a.id):rows.length;
+      return {key,value};
+    });
+    const sum=chart.reduce((n,p)=>n+p.value,0),max=Math.max(1,...chart.map(p=>p.value));
+    const details=type==='maintain'||type==='replace'?`${own.filter(l=>['not_achieved','not_replaced'].includes(l.outcome)).length} ${type==='maintain'?'not achieved':'not replaced'}; ${own.filter(l=>l.outcome==='not_applicable').length} not applicable`:measured.length>1?'Measurements changed: chart shows entry counts.':`${new Set(own.map(l=>habitDay(l,data.settings.timezone))).size} days recorded`;
+    return `<article class="insight-card"><header>${cardIcon(a)}<a href="#activity/${h(a.id)}">${h(a.name)}</a></header><div class="insight-total"><strong>${sum.toLocaleString()}</strong> ${h(unit)}</div><div class="insight-bars" role="img" aria-label="${h(a.name)}: ${h(unit)} by ${period===365?'month':'day'}; exact values below">${chart.map(p=>`<div title="${h(p.key)}: ${p.value} ${h(unit)}"><span style="height:${100*p.value/max}%"></span></div>`).join('')}</div><div class="insight-axis"><span>${h(buckets[0])}</span><span>${h(buckets.at(-1))}</span></div><small class="muted">${h(details)}${own.length?'':' No entries in this period.'}</small><details><summary>Exact values</summary><div class="insight-values"><table><thead><tr><th>${period===365?'Month':'Date'}</th><th>${h(unit)}</th></tr></thead><tbody>${chart.map(p=>`<tr><td>${h(p.key)}</td><td>${p.value}</td></tr>`).join('')}</tbody></table></div></details></article>`;
+  });
+  return `<div class="report-controls">${select('Period','period',[[7,'Week - last 7 days'],[0,'Month - to date'],[365,'Year - to date']],period,'data-change="period"')}${input('Ending on','report-end',end,'date','data-change="report-end"')}</div><div class="insight-overview"><strong>${practiced} / ${activities.length} habits recorded</strong><span>${logs.length} entries</span><span>${h(start)} to ${h(end)}</span></div><p class="insight-note muted">Each chart uses its own scale. Empty days mean no recorded progress, not failure. Year view groups totals by month.</p><div class="insight-grid">${cards.join('')||'<p>No habits yet.</p>'}</div><details class="insight-records"><summary>Detailed records (${logs.length})</summary>${logList(logs,data)}</details><details><summary>Weekly reflection</summary>${button('Reflect on this week','reflection')}</details>`;
 }
 export function authView(mode) {
   return `<main class="auth-page"><section class="auth-intro"><div class="brand">❧ My Journey</div><span class="eyebrow">SMALL STEPS. MEANINGFUL DAYS.</span><h1>A little progress,<br>every day.</h1><p>A quiet place for your everyday rituals.<br>Drink water. Turn a page. Find your balance.</p><div class="auth-art" aria-hidden="true">✧ ❧ ◌</div><small>Your journey is yours alone.</small></section><section class="auth-form"><span class="eyebrow">WELCOME TO YOUR SPACE</span><h2>${mode === "recovery" ? "Choose a new password" : mode === "reset" ? "A fresh start" : "Welcome back"}</h2><p class="muted">Make time for the things that matter to you.</p><form data-form="auth">${mode !== "recovery" ? input(mode === "reset" ? "Recovery email" : "Username or email", "email", "", mode === "reset" ? "email" : "text", mode === "reset" ? 'required autocomplete="email"' : 'required autocomplete="username" autocapitalize="none" spellcheck="false"') : ""}${mode !== "reset" ? input("Password", "password", "", "password", `required autocomplete="${mode === "recovery" ? "new-password" : "current-password"}" ${mode === "recovery" ? 'minlength="12"' : ""}`) : ""}<button class="primary wide">${mode === "recovery" ? "Update password" : mode === "reset" ? "Send recovery link" : "Sign in to My Journey"}</button><p role="status" data-auth-message></p></form>${mode !== "recovery" ? button(mode === "reset" ? "Back to sign in" : "Forgot your password?", "auth-mode", "", "text-button") : ""}<p class="small muted">Accounts are created by the administrator. Email is optional; without one, ask the administrator to reset a forgotten password.</p></section></main>`;
