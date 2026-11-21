@@ -48,7 +48,7 @@ export function balancePanel(activity,item,data) {
   const amount=l=>Number(l.values[l.quantity_field_id]??0);
   const lifetime=deposits.reduce((s,l)=>s+amount(l),0),available=lifetime-usages.reduce((s,l)=>s+amount(l),0);
   const id=item?.id??activity.id;
-  return `<div class="balance-counter"><strong>Available: ${h(available)} &middot; Lifetime: ${h(lifetime)}</strong><div>${!activity.archived&&!item?.archived?`<button type="button" data-action="balance-add" data-id="${h(id)}">Add other</button><button type="button" data-action="balance-use" data-id="${h(id)}" ${available<=0?'disabled':''}>Use</button>`:''}</div><details><summary>Balance history</summary>${[...deposits,...usages].sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at)).map(l=>`<div>${h(localDay(l.occurred_at,data.settings.timezone))} &middot; ${l.entry_type==='used'?'Used':'Added'} ${h(amount(l))}</div>`).join('')||'<small>No transactions yet</small>'}</details></div>`;
+  return `<div class="balance-counter"><div class="balance-inline"><strong>Available: ${h(available)}</strong>${!activity.archived&&!item?.archived?`<button type="button" data-action="balance-add" data-id="${h(id)}">Add other</button><button type="button" data-action="balance-use" data-id="${h(id)}" ${available<=0?'disabled':''}>Use</button>`:''}</div><details><summary>Balance details</summary><strong>Lifetime: ${h(lifetime)}</strong>${[...deposits,...usages].sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at)).map(l=>`<div>${h(localDay(l.occurred_at,data.settings.timezone))} &middot; ${l.entry_type==='used'?'Used':'Added'} ${h(amount(l))}</div>`).join('')||'<small>No transactions yet</small>'}</details></div>`;
 }
 
 export function targetSummary(activity, item, data, day, showLog = false) {
@@ -99,6 +99,7 @@ function dashboard(data, state, active, daily) {
   const labels={build:'Build · Positive habits',maintain:'Maintain · Healthy boundaries',replace:'Replace · Healthier choices'};
   return `<div class="dashboard-toolbar"><span><strong>${active.filter(a=>daily.some(l=>l.activity_id===a.id)).length} / ${active.length}</strong> habits recorded</span><div><a href="#activities">Manage habits</a>${button('+ Habit','create-activity')}</div></div>${Object.entries(labels).filter(([type])=>active.some(a=>typeOf(a)===type)).map(([type,label])=>{
     const habits=active.filter(a=>typeOf(a)===type);
+    if(type==='build') habits.sort((a,b)=>Number(!!a.item_based)-Number(!!b.item_based));
     return panel(type,label,`${habits.length} habits`, `<div class="${type==='build'?'habit-rows':'boundary-rows'}">${habits.map(a=>type==='build'?buildRow(a):boundaryCard(a,data,day,true)).join('')}</div>`);
   }).join('')}${!active.length?'<p class="muted">Create a habit to get started.</p>':''}${panel('recent','Recent entries',daily.length,`<a href="#history">View history</a><section class="panel">${logList(daily.slice(0,5),data)}</section>`,false)}`;
 }

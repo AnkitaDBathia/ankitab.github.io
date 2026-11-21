@@ -1336,7 +1336,7 @@ progress {
 .row-more > div { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
 .item-habit { grid-column:1 / -1; }
 .item-habit .habit-panel { margin:8px 0 0; border:0; background:transparent; }
-.item-habit .habit-panel > summary { padding:6px 0; font-size:12px; }
+.item-habit .habit-panel > summary { min-height:28px; padding:4px 0; font-size:12px; }
 .item-target-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:8px; padding-top:6px; align-items:start; }
 .dashboard-main .item-target-grid .target-summary { margin:0; padding:8px; border:1px solid var(--border); border-radius:8px; align-content:start; }
 .habit-panel[data-panel="recent"] > a { display:block; padding:0 12px; font-size:12px; }
@@ -1400,3 +1400,25 @@ progress {
 .insight-records { margin-top:12px; }
 @media(max-width:1100px) { .insight-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:620px) { .insight-grid { grid-template-columns:1fr; } }
+
+/* Keep the daily workspace dense while preserving direct logging controls. */
+@media(min-width:761px) {
+  .dashboard-main .habit-rows { grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+}
+.dashboard-main .habit-row:not(.item-habit):not(.boundary-row) .habit-row-top { justify-content:flex-start; gap:8px 12px; }
+.dashboard-main .habit-row:not(.item-habit):not(.boundary-row) .habit-row-heading { flex:0 1 auto; }
+.dashboard-main .habit-row:not(.item-habit):not(.boundary-row) .row-actions { gap:5px; }
+.dashboard-main .habit-row { padding:8px; }
+.dashboard-main .habit-row-heading { gap:6px; }
+.dashboard-main .habit-row-heading .activity-icon { width:28px; height:28px; }
+.dashboard-main .habit-panel > summary { min-height:34px; padding:8px 10px; }
+.dashboard-main .item-habit .habit-panel > summary { min-height:26px; padding:3px 0; }
+.dashboard-main .item-habit .habit-panel { margin-top:4px; }
+.dashboard-main .item-target-grid { padding-top:2px; }
+.dashboard-main .item-target-grid .target-summary { padding:6px 8px; gap:4px; }
+.balance-counter .balance-inline { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:0; }
+.balance-inline strong { margin-right:auto; }
+.balance-inline button { padding:5px 9px; min-height:34px; font-size:12px; }
+.dashboard-main .balance-counter { margin-top:4px; padding-top:6px; }
+.dashboard-main .balance-counter summary { padding:3px 0; min-height:26px; }
+@media(max-width:760px) { .balance-inline button { min-height:40px; } }
